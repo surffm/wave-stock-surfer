@@ -14,6 +14,27 @@ const WaveStockSurfer = () => {
   // Mobile controls state
   const [touchControls, setTouchControls] = useState({ x: 0, y: 0, active: false });
   const touchStartPos = useRef({ x: 0, y: 0 });
+  const joystickRef = useRef(null);
+  
+  // Prevent scrolling when touching the joystick
+  useEffect(() => {
+    const preventScroll = (e) => {
+      if (joystickRef.current && joystickRef.current.contains(e.target)) {
+        e.preventDefault();
+        return false;
+      }
+    };
+    
+    document.addEventListener('touchstart', preventScroll, { passive: false });
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+    document.addEventListener('touchend', preventScroll, { passive: false });
+    
+    return () => {
+      document.removeEventListener('touchstart', preventScroll);
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('touchend', preventScroll);
+    };
+  }, []);
   
   const characters = useMemo(() => [
     { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35' },
@@ -883,14 +904,16 @@ const WaveStockSurfer = () => {
         </div>
         
         {/* Jump Button */}
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto touch-none">
           <button
             onTouchStart={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               handleJump();
             }}
             onClick={handleJump}
-            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform"
+            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform touch-none select-none"
+            style={{ touchAction: 'none' }}
           >
             ⬆️
           </button>
