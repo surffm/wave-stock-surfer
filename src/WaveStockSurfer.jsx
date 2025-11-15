@@ -858,12 +858,13 @@ const WaveStockSurfer = () => {
       {/* Mobile Touch Controls */}
       <div className="mobile-controls fixed bottom-6 left-6 right-6 flex justify-between items-end pointer-events-none z-50">
         {/* Joystick */}
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto touch-none">
           <div
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative w-32 h-32 bg-white/10 backdrop-blur-md rounded-full border-4 border-white/30 shadow-2xl"
+            className="relative w-32 h-32 bg-white/10 backdrop-blur-md rounded-full border-4 border-white/30 shadow-2xl touch-none select-none"
+            style={{ touchAction: 'none' }}
           >
             <div className="absolute inset-0 flex items-center justify-center text-white/50 text-xs font-bold">
               🕹️
@@ -882,14 +883,16 @@ const WaveStockSurfer = () => {
         </div>
         
         {/* Jump Button */}
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto touch-none">
           <button
             onTouchStart={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               handleJump();
             }}
             onClick={handleJump}
-            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform"
+            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform touch-none select-none"
+            style={{ touchAction: 'none' }}
           >
             ⬆️
           </button>
