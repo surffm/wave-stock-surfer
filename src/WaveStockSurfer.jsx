@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Sparkles, Zap, TrendingUp, Info, Plus, X } from 'lucide-react';
+import { Sparkles, Zap, TrendingUp, Info, Plus, X, RefreshCw, AlertCircle } from 'lucide-react';
 
 const WaveStockSurfer = () => {
   const [score, setScore] = useState(0);
@@ -11,18 +11,27 @@ const WaveStockSurfer = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
   const [isMobile, setIsMobile] = useState(false);
+  const [realTimeData, setRealTimeData] = useState({});
+  const [dataRefreshKey, setDataRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [apiErrors, setApiErrors] = useState({});
+  const [showDataControls, setShowDataControls] = useState(false);
+  const lastFetchTime = useRef({});
   
   const characters = useMemo(() => [
-    { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35' },
-    { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4' },
-    { id: 'gohan', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D' },
-    { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3' },
-    { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181' },
-    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' }
+    { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
+    { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4', invertDirection: true },
+    { id: 'gohan', name: 'Tide Master', emoji: '🐬', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D', invertDirection: false },
+    { id: 'piccolo', name: 'Foam Ninja', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
+    { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
+    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
+    { id: 'dolphin', name: 'Wave Dolphin', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
+    { id: 'cat', name: 'Surf Cat', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
+    { id: 'unicorn', name: 'Magic Unicorn', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
+    { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
   ], []);
-  
+
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
-  
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
   
@@ -30,127 +39,222 @@ const WaveStockSurfer = () => {
     const history = [basePrice];
     for (let i = 1; i < points; i++) {
       const change = (Math.random() - 0.48) * volatility;
-      const newPrice = history[i - 1] * (1 + change);
-      history.push(newPrice);
+      history.push(history[i - 1] * (1 + change));
     }
     return history;
   }, []);
   
   const initialStocks = useMemo(() => [
-    { 
-      symbol: 'GME', 
-      color: '#EC4899', 
-      history: generatePriceHistory(25, 0.045, 50),
-      selectedChar: 'goku'
-    },
-    { 
-      symbol: 'AAPL', 
-      color: '#60A5FA', 
-      history: generatePriceHistory(170, 0.02, 50),
-      selectedChar: 'vegeta'
-    },
-    { 
-      symbol: 'GOOGL', 
-      color: '#34D399', 
-      history: generatePriceHistory(140, 0.025, 50),
-      selectedChar: 'goku'
-    },
-    { 
-      symbol: 'TSLA', 
-      color: '#F87171', 
-      history: generatePriceHistory(250, 0.04, 50),
-      selectedChar: 'vegeta'
-    }
-  ], [generatePriceHistory]);
+    { symbol: 'GME', color: '#EC4899', history: [], selectedChar: 'goku', useRealData: true },
+    { symbol: 'AAPL', color: '#60A5FA', history: [], selectedChar: 'vegeta', useRealData: true },
+    { symbol: 'GOOGL', color: '#34D399', history: [], selectedChar: 'goku', useRealData: true },
+    { symbol: 'TSLA', color: '#F87171', history: [], selectedChar: 'vegeta', useRealData: true }
+  ], []);
   
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
-  const [selectedChars, setSelectedChars] = useState({
-    GME: 'goku',
-    AAPL: 'vegeta',
-    GOOGL: 'goku',
-    TSLA: 'vegeta'
-  });
-  
+  const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
   const [surferPositions, setSurferPositions] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 }
+    initialStocks.reduce((acc, stock) => ({ 
+      ...acc, 
+      [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 } 
     }), {})
   );
-  
-  const [rockets, setRockets] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: []
-    }), {})
-  );
-  
-  const [waterTrails, setWaterTrails] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: []
-    }), {})
-  );
-  
-  const [cutbackSplashes, setCutbackSplashes] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: []
-    }), {})
-  );
+  const [rockets, setRockets] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [waterTrails, setWaterTrails] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [cutbackSplashes, setCutbackSplashes] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [targetPositions, setTargetPositions] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   
   const canvasRefs = useRef({});
   const cardRefs = useRef({});
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   const previousX = useRef({});
+  const touchingRef = useRef(false);
+  const currentTouchStock = useRef(null);
   
-  // Detect mobile
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    };
+    const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
-  // Target position for smooth movement
-  const [targetPositions, setTargetPositions] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: null
-    }), {})
-  );
-  
-  // Track if user is holding touch
-  const touchingRef = useRef(false);
-  const currentTouchStock = useRef(null);
-  
-  // Handle canvas touch/click for mobile
-  const handleCanvasTouch = useCallback((e, stockSymbol) => {
-    if (stockSymbol !== selectedStock) return;
+  const fetchAllStockData = useCallback(async (forceRefresh = false) => {
+    setIsRefreshing(true);
+    const FINNHUB_API_KEY = 'd49emh9r01qshn3lui9gd49emh9r01qshn3luia0';
+    const ALPHA_VANTAGE_KEY = 'UAL2SCJ3884W7O2E';
     
+    const newRealTimeData = {};
+    const newApiErrors = {};
+    
+    for (const stock of stocks) {
+      if (!stock.useRealData) continue;
+      
+      const lastFetch = lastFetchTime.current[stock.symbol];
+      if (!forceRefresh && lastFetch && (Date.now() - lastFetch < 30000)) {
+        if (realTimeData[stock.symbol]) {
+          newRealTimeData[stock.symbol] = realTimeData[stock.symbol];
+          continue;
+        }
+      }
+      
+      try {
+        console.log(`Fetching ${stock.symbol} from Finnhub...`);
+        const finnhubResponse = await fetch(
+          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=${FINNHUB_API_KEY}`
+        );
+        
+        if (finnhubResponse.ok) {
+          const data = await finnhubResponse.json();
+          console.log(`${stock.symbol} Finnhub data:`, data);
+          
+          if (data.c && data.c > 0) {
+            newRealTimeData[stock.symbol] = {
+              currentPrice: data.c,
+              open: data.o,
+              high: data.h,
+              low: data.l,
+              previousClose: data.pc,
+              changePercent: ((data.c - data.pc) / data.pc * 100).toFixed(2),
+              source: 'Finnhub',
+              timestamp: new Date(),
+              isLive: true
+            };
+            lastFetchTime.current[stock.symbol] = Date.now();
+            delete newApiErrors[stock.symbol];
+            console.log(`${stock.symbol} successfully fetched from Finnhub`);
+            continue;
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log(`Trying Alpha Vantage for ${stock.symbol}...`);
+        const alphaResponse = await fetch(
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=${ALPHA_VANTAGE_KEY}`
+        );
+        
+        if (alphaResponse.ok) {
+          const alphaData = await alphaResponse.json();
+          console.log(`${stock.symbol} Alpha Vantage data:`, alphaData);
+          const quote = alphaData['Global Quote'];
+          
+          if (quote && quote['05. price']) {
+            newRealTimeData[stock.symbol] = {
+              currentPrice: parseFloat(quote['05. price']),
+              open: parseFloat(quote['02. open']),
+              high: parseFloat(quote['03. high']),
+              low: parseFloat(quote['04. low']),
+              previousClose: parseFloat(quote['08. previous close']),
+              changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
+              source: 'Alpha Vantage',
+              timestamp: new Date(),
+              isLive: true
+            };
+            lastFetchTime.current[stock.symbol] = Date.now();
+            delete newApiErrors[stock.symbol];
+            console.log(`${stock.symbol} successfully fetched from Alpha Vantage`);
+            continue;
+          }
+        }
+        
+        throw new Error('No valid data from APIs');
+        
+      } catch (error) {
+        console.error(`Error fetching ${stock.symbol}:`, error);
+        newApiErrors[stock.symbol] = error.message;
+        
+        const basePrice = Math.random() * 200 + 50;
+        newRealTimeData[stock.symbol] = {
+          currentPrice: basePrice,
+          open: basePrice * 0.98,
+          high: basePrice * 1.05,
+          low: basePrice * 0.95,
+          previousClose: basePrice * 0.99,
+          changePercent: (Math.random() * 10 - 5).toFixed(2),
+          source: 'Generated (API Error)',
+          timestamp: new Date(),
+          isLive: false
+        };
+      }
+    }
+    
+    console.log('Final real-time data:', newRealTimeData);
+    setRealTimeData(newRealTimeData);
+    setApiErrors(newApiErrors);
+    setIsRefreshing(false);
+  }, [stocks, realTimeData]);
+  
+  useEffect(() => {
+    fetchAllStockData();
+    
+    const interval = setInterval(() => {
+      fetchAllStockData();
+      setDataRefreshKey(prev => prev + 1);
+    }, 60000);
+    
+    return () => clearInterval(interval);
+  }, [fetchAllStockData]);
+  
+  useEffect(() => {
+    console.log('Updating stock histories with real-time data...');
+    setStocks(prevStocks => {
+      return prevStocks.map(stock => {
+        const rtData = realTimeData[stock.symbol];
+        if (!rtData || !stock.useRealData) {
+          if (stock.history.length === 0) {
+            return {
+              ...stock,
+              history: generatePriceHistory(
+                stock.symbol === 'GME' ? 25 : 170,
+                0.03,
+                50
+              )
+            };
+          }
+          return stock;
+        }
+        
+        const { currentPrice, open, high, low } = rtData;
+        const points = 50;
+        const history = [];
+        
+        history.push(open);
+        
+        for (let i = 1; i < points - 1; i++) {
+          const progress = i / (points - 1);
+          const targetPrice = open + (currentPrice - open) * progress;
+          const volatility = (high - low) * 0.1;
+          const randomWalk = (Math.random() - 0.5) * volatility;
+          const price = Math.max(low * 0.98, Math.min(high * 1.02, targetPrice + randomWalk));
+          history.push(price);
+        }
+        
+        history.push(currentPrice);
+        
+        console.log(`${stock.symbol} history generated:`, { open, currentPrice, historyLength: history.length });
+        
+        return {
+          ...stock,
+          history,
+          realTimeInfo: rtData
+        };
+      });
+    });
+  }, [realTimeData, dataRefreshKey, generatePriceHistory]);
+  
+  const handleStockCardTouch = useCallback((e, stockSymbol) => {
+    if (stockSymbol !== selectedStock) return;
     e.preventDefault();
     const canvas = canvasRefs.current[stockSymbol];
     if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    
-    const normalizedX = Math.max(0.05, Math.min(0.95, x / rect.width));
-    const normalizedY = Math.max(0.3, Math.min(1.0, y / rect.height));
-    
-    setTargetPositions(prev => ({
-      ...prev,
-      [stockSymbol]: { x: normalizedX, y: normalizedY }
-    }));
-    
+    const normalizedX = Math.max(0.05, Math.min(0.95, (clientX - canvasRect.left) / canvasRect.width));
+    const normalizedY = Math.max(0.1, Math.min(1.5, (clientY - canvasRect.top) / canvasRect.height));
+    setTargetPositions(prev => ({ ...prev, [stockSymbol]: { x: normalizedX, y: normalizedY } }));
     touchingRef.current = true;
     currentTouchStock.current = stockSymbol;
   }, [selectedStock]);
@@ -159,554 +263,266 @@ const WaveStockSurfer = () => {
     touchingRef.current = false;
     currentTouchStock.current = null;
   }, []);
-
-  // Handle touch anywhere in the stock card
-  const handleStockCardTouch = useCallback((e, stockSymbol, cardRef) => {
-    if (stockSymbol !== selectedStock) return;
-    
-    e.preventDefault();
-    const canvas = canvasRefs.current[stockSymbol];
-    const card = cardRef;
-    if (!canvas || !card) return;
-    
-    const canvasRect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    const x = clientX - canvasRect.left;
-    const y = clientY - canvasRect.top;
-    
-    const normalizedX = Math.max(0.05, Math.min(0.95, x / canvasRect.width));
-    // Expanded Y range to allow going lower on the wave
-    const normalizedY = Math.max(0.1, Math.min(1.5, y / canvasRect.height));
-    
-    setTargetPositions(prev => ({
-      ...prev,
-      [stockSymbol]: { x: normalizedX, y: normalizedY }
-    }));
-    
-    touchingRef.current = true;
-    currentTouchStock.current = stockSymbol;
-  }, [selectedStock]);
   
-  // Jump button handler
   const handleJump = () => {
     if (selectedStock) {
-      setSurferPositions(prev => ({
-        ...prev,
-        [selectedStock]: { ...prev[selectedStock], jumping: true }
-      }));
-      
-      setTimeout(() => {
-        setSurferPositions(prev => ({
-          ...prev,
-          [selectedStock]: { ...prev[selectedStock], jumping: false }
-        }));
-      }, 600);
+      setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: true } }));
+      setTimeout(() => setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: false } })), 600);
     }
   };
   
   useEffect(() => {
     const handleKeyDown = (e) => {
       keysPressed.current[e.key] = true;
-      
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
-        e.preventDefault();
-      }
-      
-      if (e.key === ' ' && selectedStock) {
-        handleJump();
-      }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      if (e.key === ' ' && selectedStock) handleJump();
     };
-    
-    const handleKeyUp = (e) => {
-      keysPressed.current[e.key] = false;
-    };
-    
+    const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [selectedStock]);
   
-  useEffect(() => {
-    const moveInterval = setInterval(() => {
-      if (!selectedStock) return;
-      
-      setSurferPositions(prev => {
-        const current = prev[selectedStock];
-        let newX = current.x;
-        let newY = current.y;
-        let newDirection = current.direction;
-        
-        // Initialize previous X if not set
-        if (previousX.current[selectedStock] === undefined) {
-          previousX.current[selectedStock] = current.x;
-        }
-        
-        // Get wave height at current X position to clamp surfer
-        const stock = stocks.find(s => s.symbol === selectedStock);
-        if (stock) {
-          const history = stock.history;
-          const minPrice = Math.min(...history);
-          const maxPrice = Math.max(...history);
-          const priceRange = maxPrice - minPrice || 1;
-          
-          const canvas = canvasRefs.current[selectedStock];
-          if (canvas) {
-            const height = canvas.height;
-            
-            const normalizePrice = (price) => {
-              const normalized = (price - minPrice) / priceRange;
-              return height * 0.8 - normalized * height * 0.5;
-            };
-            
-            const historyIndex = current.x * (history.length - 1);
-            const index = Math.floor(historyIndex);
-            const nextIndex = Math.min(index + 1, history.length - 1);
-            const t = historyIndex - index;
-            const price = history[index] * (1 - t) + history[nextIndex] * t;
-            
-            let waveY = normalizePrice(price);
-            const waveMotion = Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-            waveY += waveMotion;
-            
-            // Convert wave Y to normalized Y (0.5 is at wave line)
-            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-            
-            // If not jumping, clamp Y to be at or below wave
-            if (!current.jumping) {
-              newY = Math.max(waveNormalizedY, newY);
-            }
-          }
-        }
-        
-        // Smooth movement towards target position
-        const target = targetPositions[selectedStock];
-        if (target) {
-          const deltaX = target.x - current.x;
-          const deltaY = target.y - current.y;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-          
-          if (distance > 0.005) {
-            // Increased speed for smoother, more responsive movement
-            const speed = 0.08;
-            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
-            
-            // ALWAYS update direction based on X movement - no threshold
-            const xDiff = newX - previousX.current[selectedStock];
-            if (xDiff > 0) {
-              // Check if we're changing direction for cutback splash
-              if (newDirection === -1) {
-                // Big cutback splash when changing from left to right!
-                createCutbackSplash(selectedStock, newX, current.y);
-              }
-              newDirection = 1; // Moving right
-            } else if (xDiff < 0) {
-              // Check if we're changing direction for cutback splash
-              if (newDirection === 1) {
-                // Big cutback splash when changing from right to left!
-                createCutbackSplash(selectedStock, newX, current.y);
-              }
-              newDirection = -1; // Moving left
-            }
-            
-            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
-            
-            // Apply wave clamping to target Y as well (if not jumping)
-            if (!current.jumping && stock) {
-              const history = stock.history;
-              const minPrice = Math.min(...history);
-              const maxPrice = Math.max(...history);
-              const priceRange = maxPrice - minPrice || 1;
-              
-              const canvas = canvasRefs.current[selectedStock];
-              if (canvas) {
-                const height = canvas.height;
-                
-                const normalizePrice = (price) => {
-                  const normalized = (price - minPrice) / priceRange;
-                  return height * 0.8 - normalized * height * 0.5;
-                };
-                
-                const historyIndex = newX * (history.length - 1);
-                const index = Math.floor(historyIndex);
-                const nextIndex = Math.min(index + 1, history.length - 1);
-                const t = historyIndex - index;
-                const price = history[index] * (1 - t) + history[nextIndex] * t;
-                
-                let waveY = normalizePrice(price);
-                const waveMotion = Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
-                waveY += waveMotion;
-                
-                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-                targetY = Math.max(waveNormalizedY, targetY);
-              }
-            }
-            
-            newY = targetY;
-          } else {
-            // Close enough to target, clear it only if not actively touching
-            if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
-              setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-            }
-          }
-        }
-        
-        // Keyboard controls (override target movement)
-        if (keysPressed.current['ArrowLeft']) {
-          const oldX = newX;
-          newX = Math.max(0.05, newX - 0.02);
-          if (newX < oldX) {
-            if (newDirection === 1) {
-              createCutbackSplash(selectedStock, newX, current.y);
-            }
-            newDirection = -1;
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowRight']) {
-          const oldX = newX;
-          newX = Math.min(0.95, newX + 0.02);
-          if (newX > oldX) {
-            if (newDirection === -1) {
-              createCutbackSplash(selectedStock, newX, current.y);
-            }
-            newDirection = 1;
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowUp']) {
-          if (current.hasRocket) {
-            newY = Math.max(-0.2, newY - 0.02);
-          } else {
-            newY = Math.max(0.5, newY - 0.02);
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowDown']) {
-          newY = Math.min(1.5, newY + 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        
-        // Update previous X for next frame
-        previousX.current[selectedStock] = newX;
-        
-        return {
-          ...prev,
-          [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection }
-        };
-      });
-    }, 16);
-    
-    return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, stocks]);
-  
   const createCutbackSplash = useCallback((stockSymbol, x, y) => {
     const canvas = canvasRefs.current[stockSymbol];
     if (!canvas) return;
-    
+    const stock = stocks.find(s => s.symbol === stockSymbol);
+    if (!stock || stock.history.length === 0) return;
     const width = canvas.width;
     const height = canvas.height;
-    
-    const stock = stocks.find(s => s.symbol === stockSymbol);
-    if (!stock) return;
-    
     const history = stock.history;
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    
-    const normalizePrice = (price) => {
-      const normalized = (price - minPrice) / priceRange;
-      return height * 0.8 - normalized * height * 0.5;
-    };
-    
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
     const historyIndex = x * (history.length - 1);
     const index = Math.floor(historyIndex);
     const nextIndex = Math.min(index + 1, history.length - 1);
     const t = historyIndex - index;
     const price = history[index] * (1 - t) + history[nextIndex] * t;
-    
-    let baseY = normalizePrice(price);
-    const waveMotion = Math.sin(x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-    baseY += waveMotion;
-    const verticalOffset = (y - 0.5) * height * 0.8;
-    
+    let baseY = normalizePrice(price) + Math.sin(x * Math.PI * 4 - timeRef.current * 0.06) * 8;
     const splashX = x * width;
-    const splashY = baseY + verticalOffset;
-    
-    // Create BIG cutback splash with lots of particles!
+    const splashY = baseY + (y - 0.5) * height * 0.8;
     const particles = [];
     for (let i = 0; i < 25; i++) {
       const angle = (Math.random() * Math.PI) - Math.PI / 2;
       const speed = Math.random() * 8 + 6;
-      particles.push({
-        id: Date.now() + Math.random(),
-        x: splashX,
-        y: splashY,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 3,
-        life: 1,
-        size: Math.random() * 5 + 3
-      });
+      particles.push({ id: Date.now() + Math.random(), x: splashX, y: splashY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 3, life: 1, size: Math.random() * 5 + 3 });
     }
-    
-    setCutbackSplashes(prev => ({
-      ...prev,
-      [stockSymbol]: [...prev[stockSymbol], ...particles]
-    }));
+    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...(prev[stockSymbol] || []), ...particles] }));
   }, [stocks]);
   
   useEffect(() => {
+    const moveInterval = setInterval(() => {
+      if (!selectedStock) return;
+      setSurferPositions(prev => {
+        const current = prev[selectedStock];
+        if (!current) return prev;
+        let newX = current.x;
+        let newY = current.y;
+        let newDirection = current.direction;
+        if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
+        
+        // Handle touch/mouse targeting
+        const target = targetPositions[selectedStock];
+        if (target) {
+          const deltaX = target.x - current.x;
+          const deltaY = target.y - current.y;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          if (distance > 0.005) {
+            const speed = 0.08;
+            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
+            newY = current.y + (deltaY / distance) * Math.min(speed, distance);
+            const xDiff = newX - previousX.current[selectedStock];
+            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
+            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
+          } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
+            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+          }
+        }
+        
+        // Handle keyboard controls
+        if (keysPressed.current['ArrowLeft']) {
+          const oldX = newX;
+          newX = Math.max(0.05, newX - 0.02);
+          if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX < oldX) newDirection = -1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowRight']) {
+          const oldX = newX;
+          newX = Math.min(0.95, newX + 0.02);
+          if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX > oldX) newDirection = 1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowUp']) { 
+          newY = Math.max(0.1, newY - 0.02); 
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
+        }
+        if (keysPressed.current['ArrowDown']) { 
+          newY = Math.min(1.5, newY + 0.02); 
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
+        }
+        
+        previousX.current[selectedStock] = newX;
+        return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
+      });
+    }, 16);
+    return () => clearInterval(moveInterval);
+  }, [selectedStock, targetPositions, createCutbackSplash]);
+
+useEffect(() => {
     const trailInterval = setInterval(() => {
       stocks.forEach(stock => {
         const surferPos = surferPositions[stock.symbol];
         const canvas = canvasRefs.current[stock.symbol];
-        if (!canvas || !surferPos) return;
-        
+        if (!canvas || !surferPos || stock.history.length === 0) return;
         const width = canvas.width;
         const height = canvas.height;
         const history = stock.history;
         const minPrice = Math.min(...history);
         const maxPrice = Math.max(...history);
         const priceRange = maxPrice - minPrice || 1;
-        
-        const normalizePrice = (price) => {
-          const normalized = (price - minPrice) / priceRange;
-          return height * 0.8 - normalized * height * 0.5;
-        };
-        
+        const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.6;
         const historyIndex = surferPos.x * (history.length - 1);
         const index = Math.floor(historyIndex);
         const nextIndex = Math.min(index + 1, history.length - 1);
         const t = historyIndex - index;
         const price = history[index] * (1 - t) + history[nextIndex] * t;
-        
-        let baseY = normalizePrice(price);
-        const waveMotion = Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-        baseY += waveMotion;
-        const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
-        const jumpOffset = surferPos.jumping ? -30 : 0;
-        
+        const baseY = normalizePrice(price) + Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
         const surferX = surferPos.x * width;
-        const surferY = baseY - 15 + jumpOffset + verticalOffset;
-        
+        const yOffset = (surferPos.y - 0.5) * height * 0.4;
+const jumpOffset = surferPos.jumping ? -30 : 0;
+const surferY = baseY + yOffset + jumpOffset - 15;
         for (let i = 0; i < 2; i++) {
           const spreadAngle = (Math.random() - 0.5) * Math.PI / 3;
           const speed = Math.random() * 3 + 2;
-          
-          setWaterTrails(prev => ({
-            ...prev,
-            [stock.symbol]: [
-              ...prev[stock.symbol],
-              {
-                id: Date.now() + Math.random(),
-                x: surferX,
-                y: surferY,
-                vx: Math.cos(Math.PI + spreadAngle) * speed,
-                vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
-                life: 1,
-                size: Math.random() * 3 + 2
-              }
-            ].slice(-30)
-          }));
+          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...(prev[stock.symbol] || []), {
+            id: Date.now() + Math.random(), x: surferX, y: surferY,
+            vx: Math.cos(Math.PI + spreadAngle) * speed, vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
+            life: 1, size: Math.random() * 3 + 2
+          }].slice(-30) }));
         }
       });
     }, 50);
-    
     return () => clearInterval(trailInterval);
   }, [stocks, surferPositions]);
   
   useEffect(() => {
     const newUnlocked = [...unlockedChars];
-    
-    if (streak >= 5 && !newUnlocked.includes('gohan')) {
-      newUnlocked.push('gohan');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (score >= 1000 && !newUnlocked.includes('piccolo')) {
-      newUnlocked.push('piccolo');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) {
-      newUnlocked.push('trunks');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (streak >= 10 && !newUnlocked.includes('krillin')) {
-      newUnlocked.push('krillin');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    
+    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
     setUnlockedChars(newUnlocked);
   }, [streak, score, powerUpCount, unlockedChars]);
   
   useEffect(() => {
     const interval = setInterval(() => {
-      const points = Math.floor(Math.random() * 50) + 20;
-      setScore(s => s + points * multiplier);
-      
+      setScore(s => s + (Math.floor(Math.random() * 50) + 20) * multiplier);
       if (Math.random() > 0.3) {
         setStreak(s => {
           const newStreak = s + 1;
-          if (newStreak % 5 === 0) {
-            setMultiplier(m => Math.min(m + 0.5, 5));
-            setCelebration(true);
-            setTimeout(() => setCelebration(false), 1500);
-          }
+          if (newStreak % 5 === 0) { setMultiplier(m => Math.min(m + 0.5, 5)); setCelebration(true); setTimeout(() => setCelebration(false), 1500); }
           return newStreak;
         });
-      } else {
-        setStreak(0);
-        setMultiplier(1);
-      }
-      
+      } else { setStreak(0); setMultiplier(1); }
       if (Math.random() > 0.85) {
-        const powerUps = ['speed', 'glow', 'foam', 'multiplier'];
-        const selected = powerUps[Math.floor(Math.random() * powerUps.length)];
-        setPowerUp(selected);
+        setPowerUp(['speed', 'glow', 'foam', 'multiplier'][Math.floor(Math.random() * 4)]);
         setPowerUpCount(c => c + 1);
         setTimeout(() => setPowerUp(null), 3000);
       }
     }, 2000);
-    
     return () => clearInterval(interval);
   }, [multiplier]);
   
   const drawWave = useCallback((canvas, stock, time) => {
-    if (!canvas) return;
+    if (!canvas || stock.history.length === 0) return;
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
-    
     ctx.clearRect(0, 0, width, height);
-    
     const history = stock.history;
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    
-    const normalizePrice = (price) => {
-      const normalized = (price - minPrice) / priceRange;
-      return height * 0.8 - normalized * height * 0.5;
-    };
-    
-    const speed = 0.02;
-    const offset = time * speed;
-    
+    const normalizePrice = (price) => height * 0.5; // Flat line for stable positioning
+    const offset = time * 0.02;
     const points = [];
-    const segments = 60;
-    for (let i = 0; i < segments; i++) {
-      const x = (i / segments) * width;
-      const progress = i / segments;
-      
+    for (let i = 0; i < 60; i++) {
+      const x = (i / 60) * width;
+      const progress = i / 60;
       const historyIndex = progress * (history.length - 1);
       const index = Math.floor(historyIndex);
       const nextIndex = Math.min(index + 1, history.length - 1);
       const t = historyIndex - index;
       const price = history[index] * (1 - t) + history[nextIndex] * t;
-      
-      let y = normalizePrice(price);
-      const waveMotion = Math.sin(progress * Math.PI * 4 - offset * 3) * 8;
-      y += waveMotion;
-      const foamNoise = Math.sin(x * 0.3 + time * 0.5) * 2;
-      y += foamNoise;
-      
+      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 20 + Math.sin(x * 0.3 + time * 0.5) * 5;
       points.push({ x, y });
     }
-    
     let crestIndex = 0;
     let highestY = height;
-    points.forEach((point, i) => {
-      if (point.y < highestY) {
-        highestY = point.y;
-        crestIndex = i;
-      }
-    });
-    
+    points.forEach((point, i) => { if (point.y < highestY) { highestY = point.y; crestIndex = i; } });
     for (let layer = 0; layer < 3; layer++) {
       ctx.beginPath();
       points.forEach((point, i) => {
-        const layerOffset = layer * 5;
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y + layerOffset);
-        } else {
-          ctx.lineTo(point.x, point.y + layerOffset);
-        }
+        if (i === 0) ctx.moveTo(point.x, point.y + layer * 5);
+        else ctx.lineTo(point.x, point.y + layer * 5);
       });
-      
       ctx.lineTo(width, height);
       ctx.lineTo(0, height);
       ctx.closePath();
-      
       const opacity = 0.25 - layer * 0.05;
       ctx.fillStyle = stock.color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
       ctx.fill();
-      
       ctx.beginPath();
       points.forEach((point, i) => {
-        const layerOffset = layer * 5;
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y + layerOffset);
-        } else {
-          ctx.lineTo(point.x, point.y + layerOffset);
-        }
+        if (i === 0) ctx.moveTo(point.x, point.y + layer * 5);
+        else ctx.lineTo(point.x, point.y + layer * 5);
       });
       ctx.strokeStyle = stock.color + Math.floor((opacity + 0.3) * 255).toString(16).padStart(2, '0');
       ctx.lineWidth = 3;
       ctx.stroke();
     }
-    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     for (let i = Math.max(0, crestIndex - 3); i < Math.min(points.length, crestIndex + 6); i++) {
       for (let j = 0; j < 3; j++) {
-        const foamX = points[i].x + (Math.random() - 0.5) * 15;
-        const foamY = points[i].y - Math.random() * 15;
         ctx.beginPath();
-        ctx.arc(foamX, foamY, Math.random() * 2 + 1, 0, Math.PI * 2);
+        ctx.arc(points[i].x + (Math.random() - 0.5) * 15, points[i].y - Math.random() * 15, Math.random() * 2 + 1, 0, Math.PI * 2);
         ctx.fill();
       }
     }
-    
     const surferPos = surferPositions[stock.symbol];
+    if (!surferPos) return;
     const surferIndex = Math.floor(surferPos.x * (points.length - 1));
     const surferPoint = points[surferIndex];
     const prevPoint = points[Math.max(0, surferIndex - 1)];
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
-    
-    const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
-    
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
+    const baseWaveY = surferPoint.y;
+    const yOffset = (surferPos.y - 0.5) * height * 0.4;
+    const jumpOffset = surferPos.jumping ? -30 : 0;
+    const finalY = baseWaveY + yOffset + jumpOffset - 15;
     
     ctx.save();
-    const jumpOffset = surferPos.jumping ? -30 : 0;
-    ctx.translate(surferPoint.x, surferPoint.y - 15 + jumpOffset + verticalOffset);
+    ctx.translate(surferPos.x * width, finalY);
     ctx.rotate(angle);
-    
-    // Flip horizontally based on direction (inverted logic)
-    if (surferPos.direction === 1) {
-      ctx.scale(-1, 1);
-    }
-    
-    if (stock.symbol === selectedStock) {
-      ctx.shadowBlur = 25;
-      ctx.shadowColor = '#00FF00';
-    }
-    
+
+    const shouldFlip = char?.invertDirection ? (surferPos.direction === -1) : (surferPos.direction === 1);
+    if (shouldFlip) ctx.scale(-1, 1);
+    if (stock.symbol === selectedStock) { ctx.shadowBlur = 25; ctx.shadowColor = '#00FF00'; }
     ctx.font = '32px Arial';
     ctx.fillText(char?.emoji || '🏄‍♂️', -16, 8);
-    
     ctx.restore();
-    
-    const trails = waterTrails[stock.symbol] || [];
-    trails.forEach(particle => {
+    (waterTrails[stock.symbol] || []).forEach(particle => {
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = '#60A5FA';
       ctx.shadowBlur = 5;
@@ -717,10 +533,7 @@ const WaveStockSurfer = () => {
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     });
-    
-    // Draw cutback splashes - BIGGER and BRIGHTER!
-    const splashes = cutbackSplashes[stock.symbol] || [];
-    splashes.forEach(particle => {
+    (cutbackSplashes[stock.symbol] || []).forEach(particle => {
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = '#FFFFFF';
       ctx.shadowBlur = 15;
@@ -731,75 +544,44 @@ const WaveStockSurfer = () => {
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     });
-    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.font = 'bold 12px Arial';
     const startPrice = history[0];
     const endPrice = history[history.length - 1];
     const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
-    
     ctx.fillText(`Start: $${startPrice.toFixed(2)}`, 10, 20);
     ctx.fillText(`Now: $${endPrice.toFixed(2)}`, width - 120, 20);
-    
-    const changeColor = priceChange >= 0 ? '#34D399' : '#F87171';
-    ctx.fillStyle = changeColor;
+    ctx.fillStyle = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
   }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
-  
+
   useEffect(() => {
     let animationFrame;
-    
     const animate = () => {
       timeRef.current += 0.1;
-      
       setWaterTrails(prev => {
         const updated = {};
         Object.keys(prev).forEach(symbol => {
-          updated[symbol] = prev[symbol]
-            .map(particle => ({
-              ...particle,
-              x: particle.x + particle.vx,
-              y: particle.y + particle.vy,
-              vy: particle.vy + 0.2,
-              life: particle.life - 0.02
-            }))
-            .filter(p => p.life > 0);
+          updated[symbol] = prev[symbol].map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.2, life: p.life - 0.02 })).filter(p => p.life > 0);
         });
         return updated;
       });
-      
       setCutbackSplashes(prev => {
         const updated = {};
         Object.keys(prev).forEach(symbol => {
-          updated[symbol] = prev[symbol]
-            .map(particle => ({
-              ...particle,
-              x: particle.x + particle.vx,
-              y: particle.y + particle.vy,
-              vy: particle.vy + 0.3,
-              vx: particle.vx * 0.98,
-              life: particle.life - 0.015
-            }))
-            .filter(p => p.life > 0);
+          updated[symbol] = prev[symbol].map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.3, vx: p.vx * 0.98, life: p.life - 0.015 })).filter(p => p.life > 0);
         });
         return updated;
       });
-      
-      stocks.forEach((stock) => {
-        const canvas = canvasRefs.current[stock.symbol];
-        drawWave(canvas, stock, timeRef.current);
-      });
+      stocks.forEach(stock => drawWave(canvasRefs.current[stock.symbol], stock, timeRef.current));
       animationFrame = requestAnimationFrame(animate);
     };
-    
     animate();
     return () => cancelAnimationFrame(animationFrame);
   }, [stocks, drawWave]);
   
   const selectCharacter = useCallback((stockSymbol, charId) => {
-    if (unlockedChars.includes(charId)) {
-      setSelectedChars(prev => ({ ...prev, [stockSymbol]: charId }));
-    }
+    if (unlockedChars.includes(charId)) setSelectedChars(prev => ({ ...prev, [stockSymbol]: charId }));
   }, [unlockedChars]);
   
   const getCharacter = useCallback((charId) => characters.find(c => c.id === charId), [characters]);
@@ -811,7 +593,8 @@ const WaveStockSurfer = () => {
         symbol: newStock.symbol.toUpperCase(),
         color: newStock.color,
         history: generatePriceHistory(basePrice, 0.03, 50),
-        selectedChar: 'goku'
+        selectedChar: 'goku',
+        useRealData: true
       };
       
       setStocks(prev => [...prev, newStockData]);
@@ -827,8 +610,10 @@ const WaveStockSurfer = () => {
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
       setShowAddForm(false);
+      
+      setTimeout(() => fetchAllStockData(true), 100);
     }
-  }, [newStock, colors, stocks.length, generatePriceHistory]);
+  }, [newStock, colors, stocks.length, generatePriceHistory, fetchAllStockData]);
 
   const removeStock = useCallback((symbol) => {
     setStocks(prev => prev.filter(s => s.symbol !== symbol));
@@ -862,17 +647,38 @@ const WaveStockSurfer = () => {
       delete newTargets[symbol];
       return newTargets;
     });
+    setRealTimeData(prev => {
+      const newData = { ...prev };
+      delete newData[symbol];
+      return newData;
+    });
+    setApiErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[symbol];
+      return newErrors;
+    });
     if (selectedStock === symbol) {
       setSelectedStock(stocks[0]?.symbol || null);
     }
   }, [selectedStock, stocks]);
+  
+  const toggleStockDataMode = useCallback((symbol) => {
+    setStocks(prev => prev.map(stock => 
+      stock.symbol === symbol 
+        ? { ...stock, useRealData: !stock.useRealData }
+        : stock
+    ));
+    setTimeout(() => {
+      setDataRefreshKey(prev => prev + 1);
+    }, 100);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
+<div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            🏄‍♂️ Wave Stock Surfer 🌊
+            Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf! Tap jump button to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
@@ -963,31 +769,137 @@ const WaveStockSurfer = () => {
           </button>
         </div>
         
-        {showMission && (
-          <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
+        <div className="text-center mb-6">
+          <button
+            onClick={() => setShowDataControls(!showDataControls)}
+            className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white px-6 py-2 rounded-full flex items-center gap-2 mx-auto transition-all shadow-lg"
+          >
+            <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+            {showDataControls ? 'Hide' : 'Show'} Data Controls
+          </button>
+        </div>
+        
+        {showDataControls && (
+          <div className="mb-6 bg-gradient-to-br from-green-500 to-blue-600 text-white rounded-3xl p-6 shadow-2xl">
             <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
-              🌊 Our Mission 🏄‍♂️
+              📊 Data Controls
             </h2>
-            <div className="space-y-3 text-base">
-              <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
-              <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-              <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => fetchAllStockData(true)}
+                disabled={isRefreshing}
+                className={`w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2 ${
+                  isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh All Data Now'}
+              </button>
+              
+              {Object.keys(apiErrors).length > 0 && (
+                <div className="bg-red-500/30 border-2 border-red-400 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-white font-bold mb-2">
+                    <AlertCircle size={16} />
+                    API Errors Detected
+                  </div>
+                  <div className="text-sm text-white/90 space-y-1">
+                    {Object.entries(apiErrors).map(([symbol, error]) => (
+                      <div key={symbol}>
+                        {symbol}: {error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                <h3 className="font-bold mb-2">Toggle Data Mode Per Stock:</h3>
+                <div className="space-y-2">
+                  {stocks.map(stock => (
+                    <div key={stock.symbol} className="flex items-center justify-between">
+                      <span className="font-medium">{stock.symbol}</span>
+                      <button
+                        onClick={() => toggleStockDataMode(stock.symbol)}
+                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                          stock.useRealData 
+                            ? 'bg-green-500 hover:bg-green-600 text-white' 
+                            : 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                        }`}
+                      >
+                        {stock.useRealData ? '📡 Live Data' : '🎲 Mock Data'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="text-sm text-white/80">
+                <p>• Live Data: Real prices from Finnhub/Alpha Vantage APIs</p>
+                <p>• Mock Data: Generated random prices for testing</p>
+                <p>• Auto-refresh: Every 60 seconds</p>
+                <p>• Manual refresh: Updates all stocks immediately</p>
+              </div>
             </div>
           </div>
         )}
         
-        {celebration && (
-          <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-            <div className="text-8xl animate-bounce">🎉✨🏆✨🎉</div>
-          </div>
-        )}
+       {showMission && (
+  <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
+    <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
+      🌊 Our Mission 🏄‍♂️
+    </h2>
+    <div className="space-y-3 text-base">
+      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
+      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+      <p>NEW: Real-time market data from Finnhub & Alpha Vantage APIs! 📡</p>
+    </div>
+  </div>
+)}
+
+{celebration && (
+  <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
+  <div className="text-8xl animate-bounce text-center">🎉✨🏆✨🎉</div>
+</div>
+)}
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-lg p-3 mb-6 border border-white/20">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-blue-200">
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+              <span>Live Market Data</span>
+              {isRefreshing && <span className="text-yellow-300">(Updating...)</span>}
+            </div>
+            <div className="text-blue-300">
+              Auto-refresh: 60s
+            </div>
+          </div>
+          {Object.keys(realTimeData).length > 0 && (
+            <div className="mt-2 text-xs text-blue-300 flex flex-wrap gap-2">
+              {Object.entries(realTimeData).map(([symbol, data]) => (
+                <span key={symbol} className="flex items-center gap-1">
+                  {data.isLive ? (
+                    <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                  ) : (
+                    <AlertCircle size={10} className="text-yellow-400" />
+                  )}
+                  {symbol}: {data.source}
+                </span>
+              ))}
+            </div>
+          )}
+          {Object.keys(apiErrors).length > 0 && (
+            <div className="mt-2 text-xs text-red-300 flex items-center gap-1">
+              <AlertCircle size={12} />
+              {Object.keys(apiErrors).length} stock(s) using fallback data
+            </div>
+          )}
+        </div>
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {stocks.map((stock) => {
             const char = getCharacter(selectedChars[stock.symbol]);
-            const startPrice = stock.history[0];
-            const endPrice = stock.history[stock.history.length - 1];
-            const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
+            const startPrice = stock.history[0] || 0;
+            const endPrice = stock.history[stock.history.length - 1] || 0;
+            const priceChange = startPrice > 0 ? ((endPrice - startPrice) / startPrice * 100).toFixed(2) : '0.00';
             const isSelected = selectedStock === stock.symbol;
             
             return (
@@ -995,8 +907,8 @@ const WaveStockSurfer = () => {
                 key={stock.symbol}
                 ref={el => cardRefs.current[stock.symbol] = el}
                 onClick={() => setSelectedStock(stock.symbol)}
-                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
-                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
+                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
                 onTouchEnd={handleCanvasTouchEnd}
                 className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative ${
                   isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
@@ -1026,9 +938,37 @@ const WaveStockSurfer = () => {
                         <div className={`text-sm font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
                         </div>
+                        {stock.realTimeInfo && (
+                          <div className="text-xs text-blue-200 flex items-center gap-1">
+                            {stock.realTimeInfo.isLive ? (
+                              <span className="flex items-center gap-1">
+                                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                                {stock.realTimeInfo.source}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <AlertCircle size={10} />
+                                {stock.realTimeInfo.source}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {!stock.useRealData && (
+                          <div className="text-xs text-yellow-300 flex items-center gap-1">
+                            🎲 Mock Mode
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
+                  {stock.realTimeInfo && (
+                    <div className="text-xs text-blue-200 flex items-center justify-between">
+                      <span>Current: ${stock.realTimeInfo.currentPrice.toFixed(2)}</span>
+                      <span className="text-blue-300">
+                        Updated: {new Date(stock.realTimeInfo.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 
                 <canvas
@@ -1133,16 +1073,16 @@ const WaveStockSurfer = () => {
         </div>
 
         <div className="flex justify-center gap-4 mb-6">
-          <a
-            href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
+          
+            <a href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
             target="_blank"
             rel="noopener noreferrer"
             className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
           >
             Donate
           </a>
-          <a
-            href="mailto:surf.fm.official@gmail.com"
+          
+            <a href="mailto:surf.fm.official@gmail.com"
             className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
           >
             Contact
@@ -1150,7 +1090,6 @@ const WaveStockSurfer = () => {
         </div>
       </div>
       
-      {/* Mobile Jump Button */}
       {isMobile && (
         <div className="fixed bottom-6 right-6 z-50">
           <button
