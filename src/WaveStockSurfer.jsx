@@ -12,19 +12,19 @@ const WaveStockSurfer = () => {
   const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
   const [isMobile, setIsMobile] = useState(false);
   
-  const characters = useMemo(() => [
-  { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35' },
-  { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4' },
-  { id: 'gohan', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D' },
-  { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3' },
-  { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181' },
-  { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' },
+  cconst characters = useMemo(() => [
+  { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', flip: false },
+  { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4', flip: true },
+  { id: 'gohan', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D', flip: false },
+  { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', flip: false },
+  { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', flip: false },
+  { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', flip: false },
 
   // ⭐ NEW CHARACTERS ⭐
-  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 8 streak', color: '#3BA3FF' },
-  { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Reach 8 streak', color: '#F6A5C0' },
-  { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Reach 9 streak', color: '#D98FFF' },
-  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Reach 10 streak', color: '#6E8B8E' }
+  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 8 streak', color: '#3BA3FF', flip: false },
+  { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Reach 8 streak', color: '#F6A5C0', flip: false },
+  { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Reach 9 streak', color: '#D98FFF', flip: false },
+  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Reach 10 streak', color: '#6E8B8E', flip: false }
 ], []);
 
   
@@ -701,35 +701,31 @@ const WaveStockSurfer = () => {
       }
     }
     
-    const surferPos = surferPositions[stock.symbol];
-    const surferIndex = Math.floor(surferPos.x * (points.length - 1));
-    const surferPoint = points[surferIndex];
-    const prevPoint = points[Math.max(0, surferIndex - 1)];
-    const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
-    
-    const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
-    
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
-    
-    ctx.save();
-    const jumpOffset = surferPos.jumping ? -30 : 0;
-    ctx.translate(surferPoint.x, surferPoint.y - 15 + jumpOffset + verticalOffset);
-    ctx.rotate(angle);
-    
-    // Flip horizontally based on direction (inverted logic)
-    if (surferPos.direction === 1) {
-      ctx.scale(-1, 1);
-    }
-    
-    if (stock.symbol === selectedStock) {
-      ctx.shadowBlur = 25;
-      ctx.shadowColor = '#00FF00';
-    }
-    
-    ctx.font = '32px Arial';
-    ctx.fillText(char?.emoji || '🏄‍♂️', -16, 8);
-    
-    ctx.restore();
+
+if (char) {
+  const jumpOffset = surferPos.jumping ? -30 : 0;
+  const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
+
+  ctx.save();
+  ctx.translate(surferPoint.x, surferPoint.y - 15 + jumpOffset + verticalOffset);
+  ctx.rotate(angle);
+
+  // Flip horizontally: true = character naturally faces left
+  const shouldFlip = (surferPos.direction === 1) !== (char.flip || false);
+  ctx.scale(shouldFlip ? -1 : 1, 1);
+
+  if (stock.symbol === selectedStock) {
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = '#00FF00';
+  }
+
+  ctx.font = '32px Arial';
+  ctx.fillText(char.emoji, -16, 8);
+
+  ctx.restore();
+}
+   
     
     const trails = waterTrails[stock.symbol] || [];
     trails.forEach(particle => {
