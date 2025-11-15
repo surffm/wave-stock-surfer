@@ -107,6 +107,14 @@ const WaveStockSurfer = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
+  // Target position for smooth movement
+  const [targetPositions, setTargetPositions] = useState(
+    stocks.reduce((acc, stock) => ({
+      ...acc,
+      [stock.symbol]: null
+    }), {})
+  );
+  
   // Handle canvas touch/click for mobile
   const handleCanvasTouch = useCallback((e, stockSymbol) => {
     if (stockSymbol !== selectedStock) return;
@@ -125,13 +133,9 @@ const WaveStockSurfer = () => {
     const normalizedX = Math.max(0.05, Math.min(0.95, x / rect.width));
     const normalizedY = Math.max(0.3, Math.min(1.0, y / rect.height));
     
-    setSurferPositions(prev => ({
+    setTargetPositions(prev => ({
       ...prev,
-      [stockSymbol]: {
-        ...prev[stockSymbol],
-        x: normalizedX,
-        y: normalizedY
-      }
+      [stockSymbol]: { x: normalizedX, y: normalizedY }
     }));
   }, [selectedStock]);
   
@@ -187,12 +191,31 @@ const WaveStockSurfer = () => {
         let newX = current.x;
         let newY = current.y;
         
-        // Keyboard controls
+        // Smooth movement towards target position
+        const target = targetPositions[selectedStock];
+        if (target) {
+          const deltaX = target.x - current.x;
+          const deltaY = target.y - current.y;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          
+          if (distance > 0.01) {
+            const speed = 0.08; // Adjust for smoother/faster movement
+            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
+            newY = current.y + (deltaY / distance) * Math.min(speed, distance);
+          } else {
+            // Close enough to target, clear it
+            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+          }
+        }
+        
+        // Keyboard controls (override target movement)
         if (keysPressed.current['ArrowLeft']) {
           newX = Math.max(0.05, newX - 0.02);
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowRight']) {
           newX = Math.min(0.95, newX + 0.02);
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowUp']) {
           if (current.hasRocket) {
@@ -200,9 +223,11 @@ const WaveStockSurfer = () => {
           } else {
             newY = Math.max(0.5, newY - 0.02);
           }
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowDown']) {
           newY = Math.min(1.2, newY + 0.02);
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         
         return {
@@ -213,7 +238,7 @@ const WaveStockSurfer = () => {
     }, 30);
     
     return () => clearInterval(moveInterval);
-  }, [selectedStock]);
+  }, [selectedStock, targetPositions]);
   
   useEffect(() => {
     const trailInterval = setInterval(() => {
