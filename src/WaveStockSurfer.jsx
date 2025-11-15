@@ -38,25 +38,12 @@ const WaveStockSurfer = () => {
     return history;
   }, []);
   
-  const initialStocks = {
-  GME: (() => {
-    const raw = generatePriceHistory(25, 0.12, 500); // base wave
-    const target = 500000;
-    const start = raw[0];
-    return raw.map((p, i) => {
-      const t = i / (raw.length - 1); // 0 -> 1
-      const scale = 1 + t * (target / start - 1); // gradually scale toward 500k
-      return p * scale;
-    });
-  })(),
-  // other stocks...
-};
-    selectedChar: 'goku' 
-  },
-  { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
-  { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
-  { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
-], [generatePriceHistory]);
+  const initialStocks = useMemo(() => [
+    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.1, 5000), selectedChar: 'goku' },
+    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
+    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
+    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
+  ], [generatePriceHistory]);
   
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
