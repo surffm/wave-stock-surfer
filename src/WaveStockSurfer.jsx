@@ -146,16 +146,39 @@ const WaveStockSurfer = () => {
         const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
         const surferY = waveY + verticalOffset;
         
-        // Check if surfer is in the tube (close to wave crest and slightly behind it)
-        const tubeZoneY = waveY - 40; // Tube is above the wave
-        const tubeZoneYBottom = waveY + 10;
-        const isInTubeVertically = surferY >= tubeZoneY && surferY <= tubeZoneYBottom;
+        // Check if surfer is in the tube (under the folding lip)
+        // Tube zone is from the crest extending down and forward
+        const tubeZoneX = surferPos.x * width;
+        const tubeStartX = (historyIndex / (history.length - 1)) * width;
         
-        // Tube exists around the crest areas
-        const crestPhase = (surferPos.x * Math.PI * 4 - timeRef.current * 0.06) % (Math.PI * 2);
-        const isNearCrest = Math.abs(Math.sin(crestPhase)) > 0.5;
+        // Find crest position
+        let crestX = 0;
+        let highestY = height;
+        for (let i = 0; i < 60; i++) {
+          const progress = i / 60;
+          const hIndex = progress * (history.length - 1);
+          const idx = Math.floor(hIndex);
+          const nextIdx = Math.min(idx + 1, history.length - 1);
+          const t = hIndex - idx;
+          const p = history[idx] * (1 - t) + history[nextIdx] * t;
+          let y = normalizePrice(p);
+          const wm = Math.sin(progress * Math.PI * 4 - timeRef.current * 0.06) * 8;
+          y += wm;
+          if (y < highestY) {
+            highestY = y;
+            crestX = progress;
+          }
+        }
         
-        const isInTube = isInTubeVertically && isNearCrest;
+        // Tube exists in a zone after the crest
+        const isInTubeXRange = surferPos.x > crestX && surferPos.x < (crestX + 0.15);
+        
+        // Tube zone is deep - from wave top down to 60% of height
+        const tubeTopY = waveY;
+        const tubeBottomY = waveY + height * 0.4;
+        const isInTubeYRange = surferY >= tubeTopY && surferY <= tubeBottomY;
+        
+        const isInTube = isInTubeXRange && isInTubeYRange;
         
         setTubeStatus(prev => {
           const current = prev[stock.symbol];
@@ -747,45 +770,61 @@ const WaveStockSurfer = () => {
       ctx.stroke();
     }
     
-    // Draw tube/barrel at crest
+    // Draw tube/barrel - a big folding lip at crest
     const crestPoint = points[crestIndex];
     if (crestPoint) {
-      // Draw tube opening
       ctx.save();
       
-      // Tube arc
-      const tubeRadius = 40;
-      const tubeStartX = Math.max(0, crestPoint.x - 30);
-      const tubeEndX = Math.min(width, crestPoint.x + 30);
+      // Create the tube lip that folds over
+      const lipStartX = crestPoint.x;
+      const lipStartY = crestPoint.y;
+      const lipCurveOut = 60; // How far the lip extends out
+      const lipHeight = height * 0.6; // Tube goes deep down the wave
       
+      // Draw the folding tube lip
       ctx.beginPath();
-      ctx.arc(crestPoint.x, crestPoint.y, tubeRadius, 0, Math.PI);
+      ctx.moveTo(lipStartX, lipStartY);
       
-      // Create gradient for tube interior
-      const gradient = ctx.createRadialGradient(
-        crestPoint.x, crestPoint.y - 20, 5,
-        crestPoint.x, crestPoint.y, tubeRadius
-      );
-      gradient.addColorStop(0, 'rgba(135, 206, 250, 0.6)');
-      gradient.addColorStop(0.5, 'rgba(70, 130, 180, 0.4)');
-      gradient.addColorStop(1, 'rgba(25, 25, 112, 0.2)');
+      // Curve out and down creating the barrel
+      const cp1x = lipStartX + lipCurveOut;
+      const cp1y = lipStartY - 30;
+      const cp2x = lipStartX + lipCurveOut + 20;
+      const cp2y = lipStartY + lipHeight * 0.3;
+      const endX = lipStartX + 40;
+      const endY = lipStartY + lipHeight;
       
-      ctx.fillStyle = gradient;
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+      
+      // Connect back to create the tube interior
+      ctx.lineTo(lipStartX + 10, endY);
+      ctx.lineTo(lipStartX, lipStartY);
+      ctx.closePath();
+      
+      // Gradient for tube interior - darker inside, lighter at edges
+      const tubeGradient = ctx.createLinearGradient(lipStartX, lipStartY, lipStartX + lipCurveOut, lipStartY + lipHeight / 2);
+      tubeGradient.addColorStop(0, 'rgba(100, 180, 255, 0.3)');
+      tubeGradient.addColorStop(0.4, 'rgba(50, 120, 200, 0.5)');
+      tubeGradient.addColorStop(1, 'rgba(20, 60, 120, 0.7)');
+      
+      ctx.fillStyle = tubeGradient;
       ctx.fill();
       
-      // Tube outline
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 2;
+      // Outer edge highlight
+      ctx.beginPath();
+      ctx.moveTo(lipStartX, lipStartY);
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 3;
       ctx.stroke();
       
-      // Add some shimmer effect
+      // Add shimmer/spray at the lip
       ctx.beginPath();
-      for (let i = 0; i < 5; i++) {
-        const shimmerX = crestPoint.x + (Math.random() - 0.5) * 40;
-        const shimmerY = crestPoint.y - Math.random() * 30;
-        ctx.arc(shimmerX, shimmerY, Math.random() * 2 + 1, 0, Math.PI * 2);
+      for (let i = 0; i < 8; i++) {
+        const shimmerX = lipStartX + (Math.random() * 50) + 10;
+        const shimmerY = lipStartY - Math.random() * 20;
+        ctx.arc(shimmerX, shimmerY, Math.random() * 3 + 1, 0, Math.PI * 2);
       }
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.fill();
       
       ctx.restore();
