@@ -19,17 +19,13 @@ const WaveStockSurfer = () => {
   { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
   { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
   { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
-
-  // ⭐ NEW CHARACTERS ⭐
   { id: 'dolphin', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
   { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
   { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
   { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
 ], []);
 
-  
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
-  
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
   
@@ -37,127 +33,53 @@ const WaveStockSurfer = () => {
     const history = [basePrice];
     for (let i = 1; i < points; i++) {
       const change = (Math.random() - 0.48) * volatility;
-      const newPrice = history[i - 1] * (1 + change);
-      history.push(newPrice);
+      history.push(history[i - 1] * (1 + change));
     }
     return history;
   }, []);
   
   const initialStocks = useMemo(() => [
-    { 
-      symbol: 'GME', 
-      color: '#EC4899', 
-      history: generatePriceHistory(25, 0.045, 50),
-      selectedChar: 'goku'
-    },
-    { 
-      symbol: 'AAPL', 
-      color: '#60A5FA', 
-      history: generatePriceHistory(170, 0.02, 50),
-      selectedChar: 'vegeta'
-    },
-    { 
-      symbol: 'GOOGL', 
-      color: '#34D399', 
-      history: generatePriceHistory(140, 0.025, 50),
-      selectedChar: 'goku'
-    },
-    { 
-      symbol: 'TSLA', 
-      color: '#F87171', 
-      history: generatePriceHistory(250, 0.04, 50),
-      selectedChar: 'vegeta'
-    }
+    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
+    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
+    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
+    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
   ], [generatePriceHistory]);
   
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
-  const [selectedChars, setSelectedChars] = useState({
-    GME: 'goku',
-    AAPL: 'vegeta',
-    GOOGL: 'goku',
-    TSLA: 'vegeta'
-  });
-  
-  const [surferPositions, setSurferPositions] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 }
-    }), {})
-  );
-  
-  const [rockets, setRockets] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: []
-    }), {})
-  );
-  
-  const [waterTrails, setWaterTrails] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: []
-    }), {})
-  );
-  
-  const [cutbackSplashes, setCutbackSplashes] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: []
-    }), {})
-  );
-  
+  const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
+  const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 } }), {}));
+  const [rockets, setRockets] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [waterTrails, setWaterTrails] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [cutbackSplashes, setCutbackSplashes] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
   const canvasRefs = useRef({});
   const cardRefs = useRef({});
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   const previousX = useRef({});
   
-  // Detect mobile
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    };
+    const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
-  // Target position for smooth movement
-  const [targetPositions, setTargetPositions] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: null
-    }), {})
-  );
-  
-  // Track if user is holding touch
+  const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   const touchingRef = useRef(false);
   const currentTouchStock = useRef(null);
   
-  // Handle canvas touch/click for mobile
-  const handleCanvasTouch = useCallback((e, stockSymbol) => {
+  const handleStockCardTouch = useCallback((e, stockSymbol) => {
     if (stockSymbol !== selectedStock) return;
-    
     e.preventDefault();
     const canvas = canvasRefs.current[stockSymbol];
     if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    
-    const normalizedX = Math.max(0.05, Math.min(0.95, x / rect.width));
-    const normalizedY = Math.max(0.3, Math.min(1.0, y / rect.height));
-    
-    setTargetPositions(prev => ({
-      ...prev,
-      [stockSymbol]: { x: normalizedX, y: normalizedY }
-    }));
-    
+    const normalizedX = Math.max(0.05, Math.min(0.95, (clientX - canvasRect.left) / canvasRect.width));
+    const normalizedY = Math.max(0.1, Math.min(1.5, (clientY - canvasRect.top) / canvasRect.height));
+    setTargetPositions(prev => ({ ...prev, [stockSymbol]: { x: normalizedX, y: normalizedY } }));
     touchingRef.current = true;
     currentTouchStock.current = stockSymbol;
   }, [selectedStock]);
@@ -166,307 +88,145 @@ const WaveStockSurfer = () => {
     touchingRef.current = false;
     currentTouchStock.current = null;
   }, []);
-
-  // Handle touch anywhere in the stock card
-  const handleStockCardTouch = useCallback((e, stockSymbol, cardRef) => {
-    if (stockSymbol !== selectedStock) return;
-    
-    e.preventDefault();
-    const canvas = canvasRefs.current[stockSymbol];
-    const card = cardRef;
-    if (!canvas || !card) return;
-    
-    const canvasRect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    const x = clientX - canvasRect.left;
-    const y = clientY - canvasRect.top;
-    
-    const normalizedX = Math.max(0.05, Math.min(0.95, x / canvasRect.width));
-    // Expanded Y range to allow going lower on the wave
-    const normalizedY = Math.max(0.1, Math.min(1.5, y / canvasRect.height));
-    
-    setTargetPositions(prev => ({
-      ...prev,
-      [stockSymbol]: { x: normalizedX, y: normalizedY }
-    }));
-    
-    touchingRef.current = true;
-    currentTouchStock.current = stockSymbol;
-  }, [selectedStock]);
   
-  // Jump button handler
   const handleJump = () => {
     if (selectedStock) {
-      setSurferPositions(prev => ({
-        ...prev,
-        [selectedStock]: { ...prev[selectedStock], jumping: true }
-      }));
-      
-      setTimeout(() => {
-        setSurferPositions(prev => ({
-          ...prev,
-          [selectedStock]: { ...prev[selectedStock], jumping: false }
-        }));
-      }, 600);
+      setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: true } }));
+      setTimeout(() => setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: false } })), 600);
     }
   };
   
   useEffect(() => {
     const handleKeyDown = (e) => {
       keysPressed.current[e.key] = true;
-      
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
-        e.preventDefault();
-      }
-      
-      if (e.key === ' ' && selectedStock) {
-        handleJump();
-      }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      if (e.key === ' ' && selectedStock) handleJump();
     };
-    
-    const handleKeyUp = (e) => {
-      keysPressed.current[e.key] = false;
-    };
-    
+    const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [selectedStock]);
   
-  useEffect(() => {
-    const moveInterval = setInterval(() => {
-      if (!selectedStock) return;
-      
-      setSurferPositions(prev => {
-        const current = prev[selectedStock];
-        let newX = current.x;
-        let newY = current.y;
-        let newDirection = current.direction;
-        
-        // Initialize previous X if not set
-        if (previousX.current[selectedStock] === undefined) {
-          previousX.current[selectedStock] = current.x;
-        }
-        
-        // Get wave height at current X position to clamp surfer
-        const stock = stocks.find(s => s.symbol === selectedStock);
-        if (stock) {
-          const history = stock.history;
-          const minPrice = Math.min(...history);
-          const maxPrice = Math.max(...history);
-          const priceRange = maxPrice - minPrice || 1;
-          
-          const canvas = canvasRefs.current[selectedStock];
-          if (canvas) {
-            const height = canvas.height;
-            
-            const normalizePrice = (price) => {
-              const normalized = (price - minPrice) / priceRange;
-              return height * 0.8 - normalized * height * 0.5;
-            };
-            
-            const historyIndex = current.x * (history.length - 1);
-            const index = Math.floor(historyIndex);
-            const nextIndex = Math.min(index + 1, history.length - 1);
-            const t = historyIndex - index;
-            const price = history[index] * (1 - t) + history[nextIndex] * t;
-            
-            let waveY = normalizePrice(price);
-            const waveMotion = Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-            waveY += waveMotion;
-            
-            // Convert wave Y to normalized Y (0.5 is at wave line)
-            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-            
-            // If not jumping, clamp Y to be at or below wave
-            if (!current.jumping) {
-              newY = Math.max(waveNormalizedY, newY);
-            }
-          }
-        }
-        
-        // Smooth movement towards target position
-        const target = targetPositions[selectedStock];
-        if (target) {
-          const deltaX = target.x - current.x;
-          const deltaY = target.y - current.y;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-          
-          if (distance > 0.005) {
-            // Increased speed for smoother, more responsive movement
-            const speed = 0.08;
-            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
-            
-            // ALWAYS update direction based on X movement - no threshold
-            const xDiff = newX - previousX.current[selectedStock];
-            if (xDiff > 0) {
-              // Check if we're changing direction for cutback splash
-              if (newDirection === -1) {
-                // Big cutback splash when changing from left to right!
-                createCutbackSplash(selectedStock, newX, current.y);
-              }
-              newDirection = 1; // Moving right
-            } else if (xDiff < 0) {
-              // Check if we're changing direction for cutback splash
-              if (newDirection === 1) {
-                // Big cutback splash when changing from right to left!
-                createCutbackSplash(selectedStock, newX, current.y);
-              }
-              newDirection = -1; // Moving left
-            }
-            
-            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
-            
-            // Apply wave clamping to target Y as well (if not jumping)
-            if (!current.jumping && stock) {
-              const history = stock.history;
-              const minPrice = Math.min(...history);
-              const maxPrice = Math.max(...history);
-              const priceRange = maxPrice - minPrice || 1;
-              
-              const canvas = canvasRefs.current[selectedStock];
-              if (canvas) {
-                const height = canvas.height;
-                
-                const normalizePrice = (price) => {
-                  const normalized = (price - minPrice) / priceRange;
-                  return height * 0.8 - normalized * height * 0.5;
-                };
-                
-                const historyIndex = newX * (history.length - 1);
-                const index = Math.floor(historyIndex);
-                const nextIndex = Math.min(index + 1, history.length - 1);
-                const t = historyIndex - index;
-                const price = history[index] * (1 - t) + history[nextIndex] * t;
-                
-                let waveY = normalizePrice(price);
-                const waveMotion = Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
-                waveY += waveMotion;
-                
-                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-                targetY = Math.max(waveNormalizedY, targetY);
-              }
-            }
-            
-            newY = targetY;
-          } else {
-            // Close enough to target, clear it only if not actively touching
-            if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
-              setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-            }
-          }
-        }
-        
-        // Keyboard controls (override target movement)
-        if (keysPressed.current['ArrowLeft']) {
-          const oldX = newX;
-          newX = Math.max(0.05, newX - 0.02);
-          if (newX < oldX) {
-            if (newDirection === 1) {
-              createCutbackSplash(selectedStock, newX, current.y);
-            }
-            newDirection = -1;
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowRight']) {
-          const oldX = newX;
-          newX = Math.min(0.95, newX + 0.02);
-          if (newX > oldX) {
-            if (newDirection === -1) {
-              createCutbackSplash(selectedStock, newX, current.y);
-            }
-            newDirection = 1;
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowUp']) {
-          if (current.hasRocket) {
-            newY = Math.max(-0.2, newY - 0.02);
-          } else {
-            newY = Math.max(0.5, newY - 0.02);
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowDown']) {
-          newY = Math.min(1.5, newY + 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        
-        // Update previous X for next frame
-        previousX.current[selectedStock] = newX;
-        
-        return {
-          ...prev,
-          [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection }
-        };
-      });
-    }, 16);
-    
-    return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, stocks]);
-  
   const createCutbackSplash = useCallback((stockSymbol, x, y) => {
     const canvas = canvasRefs.current[stockSymbol];
     if (!canvas) return;
-    
-    const width = canvas.width;
-    const height = canvas.height;
-    
     const stock = stocks.find(s => s.symbol === stockSymbol);
     if (!stock) return;
-    
+    const width = canvas.width;
+    const height = canvas.height;
     const history = stock.history;
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    
-    const normalizePrice = (price) => {
-      const normalized = (price - minPrice) / priceRange;
-      return height * 0.8 - normalized * height * 0.5;
-    };
-    
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
     const historyIndex = x * (history.length - 1);
     const index = Math.floor(historyIndex);
     const nextIndex = Math.min(index + 1, history.length - 1);
     const t = historyIndex - index;
     const price = history[index] * (1 - t) + history[nextIndex] * t;
-    
-    let baseY = normalizePrice(price);
-    const waveMotion = Math.sin(x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-    baseY += waveMotion;
-    const verticalOffset = (y - 0.5) * height * 0.8;
-    
+    let baseY = normalizePrice(price) + Math.sin(x * Math.PI * 4 - timeRef.current * 0.06) * 8;
     const splashX = x * width;
-    const splashY = baseY + verticalOffset;
-    
-    // Create BIG cutback splash with lots of particles!
+    const splashY = baseY + (y - 0.5) * height * 0.8;
     const particles = [];
     for (let i = 0; i < 25; i++) {
       const angle = (Math.random() * Math.PI) - Math.PI / 2;
       const speed = Math.random() * 8 + 6;
-      particles.push({
-        id: Date.now() + Math.random(),
-        x: splashX,
-        y: splashY,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 3,
-        life: 1,
-        size: Math.random() * 5 + 3
-      });
+      particles.push({ id: Date.now() + Math.random(), x: splashX, y: splashY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 3, life: 1, size: Math.random() * 5 + 3 });
     }
-    
-    setCutbackSplashes(prev => ({
-      ...prev,
-      [stockSymbol]: [...prev[stockSymbol], ...particles]
-    }));
+    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...prev[stockSymbol], ...particles] }));
   }, [stocks]);
+  
+  useEffect(() => {
+    const moveInterval = setInterval(() => {
+      if (!selectedStock) return;
+      setSurferPositions(prev => {
+        const current = prev[selectedStock];
+        let newX = current.x;
+        let newY = current.y;
+        let newDirection = current.direction;
+        if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
+        const stock = stocks.find(s => s.symbol === selectedStock);
+        if (stock && !current.jumping) {
+          const canvas = canvasRefs.current[selectedStock];
+          if (canvas) {
+            const height = canvas.height;
+            const history = stock.history;
+            const minPrice = Math.min(...history);
+            const maxPrice = Math.max(...history);
+            const priceRange = maxPrice - minPrice || 1;
+            const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+            const historyIndex = current.x * (history.length - 1);
+            const index = Math.floor(historyIndex);
+            const nextIndex = Math.min(index + 1, history.length - 1);
+            const t = historyIndex - index;
+            const price = history[index] * (1 - t) + history[nextIndex] * t;
+            const waveY = normalizePrice(price) + Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+            newY = Math.max(waveNormalizedY, newY);
+          }
+        }
+        const target = targetPositions[selectedStock];
+        if (target) {
+          const deltaX = target.x - current.x;
+          const deltaY = target.y - current.y;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          if (distance > 0.005) {
+            const speed = 0.08;
+            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
+            const xDiff = newX - previousX.current[selectedStock];
+            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
+            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
+            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
+            if (!current.jumping && stock) {
+              const canvas = canvasRefs.current[selectedStock];
+              if (canvas) {
+                const height = canvas.height;
+                const history = stock.history;
+                const minPrice = Math.min(...history);
+                const maxPrice = Math.max(...history);
+                const priceRange = maxPrice - minPrice || 1;
+                const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+                const historyIndex = newX * (history.length - 1);
+                const index = Math.floor(historyIndex);
+                const nextIndex = Math.min(index + 1, history.length - 1);
+                const t = historyIndex - index;
+                const price = history[index] * (1 - t) + history[nextIndex] * t;
+                const waveY = normalizePrice(price) + Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
+                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+                targetY = Math.max(waveNormalizedY, targetY);
+              }
+            }
+            newY = targetY;
+          } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
+            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+          }
+        }
+        if (keysPressed.current['ArrowLeft']) {
+          const oldX = newX;
+          newX = Math.max(0.05, newX - 0.02);
+          if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX < oldX) newDirection = -1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowRight']) {
+          const oldX = newX;
+          newX = Math.min(0.95, newX + 0.02);
+          if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX > oldX) newDirection = 1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowUp']) { newY = Math.max(current.hasRocket ? -0.2 : 0.5, newY - 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        previousX.current[selectedStock] = newX;
+        return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
+      });
+    }, 16);
+    return () => clearInterval(moveInterval);
+  }, [selectedStock, targetPositions, stocks, createCutbackSplash]);
   
   useEffect(() => {
     const trailInterval = setInterval(() => {
@@ -474,138 +234,64 @@ const WaveStockSurfer = () => {
         const surferPos = surferPositions[stock.symbol];
         const canvas = canvasRefs.current[stock.symbol];
         if (!canvas || !surferPos) return;
-        
         const width = canvas.width;
         const height = canvas.height;
         const history = stock.history;
         const minPrice = Math.min(...history);
         const maxPrice = Math.max(...history);
         const priceRange = maxPrice - minPrice || 1;
-        
-        const normalizePrice = (price) => {
-          const normalized = (price - minPrice) / priceRange;
-          return height * 0.8 - normalized * height * 0.5;
-        };
-        
+        const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
         const historyIndex = surferPos.x * (history.length - 1);
         const index = Math.floor(historyIndex);
         const nextIndex = Math.min(index + 1, history.length - 1);
         const t = historyIndex - index;
         const price = history[index] * (1 - t) + history[nextIndex] * t;
-        
-        let baseY = normalizePrice(price);
-        const waveMotion = Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-        baseY += waveMotion;
-        const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
-        const jumpOffset = surferPos.jumping ? -30 : 0;
-        
+        const baseY = normalizePrice(price) + Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
         const surferX = surferPos.x * width;
-        const surferY = baseY - 15 + jumpOffset + verticalOffset;
-        
+        const surferY = baseY - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8;
         for (let i = 0; i < 2; i++) {
           const spreadAngle = (Math.random() - 0.5) * Math.PI / 3;
           const speed = Math.random() * 3 + 2;
-          
-          setWaterTrails(prev => ({
-            ...prev,
-            [stock.symbol]: [
-              ...prev[stock.symbol],
-              {
-                id: Date.now() + Math.random(),
-                x: surferX,
-                y: surferY,
-                vx: Math.cos(Math.PI + spreadAngle) * speed,
-                vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
-                life: 1,
-                size: Math.random() * 3 + 2
-              }
-            ].slice(-30)
-          }));
+          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...prev[stock.symbol], {
+            id: Date.now() + Math.random(), x: surferX, y: surferY,
+            vx: Math.cos(Math.PI + spreadAngle) * speed, vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
+            life: 1, size: Math.random() * 3 + 2
+          }].slice(-30) }));
         }
       });
     }, 50);
-    
     return () => clearInterval(trailInterval);
   }, [stocks, surferPositions]);
   
   useEffect(() => {
     const newUnlocked = [...unlockedChars];
-
-    if (streak >= 5 && !newUnlocked.includes('gohan')) {
-      newUnlocked.push('gohan');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (score >= 1000 && !newUnlocked.includes('piccolo')) {
-      newUnlocked.push('piccolo');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) {
-      newUnlocked.push('trunks');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (streak >= 10 && !newUnlocked.includes('krillin')) {
-      newUnlocked.push('krillin');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-
-    // ⭐ NEW CHARACTERS ⭐
-    if (streak >= 20 && !newUnlocked.includes('dolphin')) {
-      newUnlocked.push('dolphin');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (score >= 5000 && !newUnlocked.includes('cat')) {
-      newUnlocked.push('cat');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) {
-      newUnlocked.push('unicorn');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (streak >= 15 && !newUnlocked.includes('wolf')) {
-      newUnlocked.push('wolf');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-
+    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
     setUnlockedChars(newUnlocked);
   }, [streak, score, powerUpCount, unlockedChars]);
   
   useEffect(() => {
     const interval = setInterval(() => {
-      const points = Math.floor(Math.random() * 50) + 20;
-      setScore(s => s + points * multiplier);
-      
+      setScore(s => s + (Math.floor(Math.random() * 50) + 20) * multiplier);
       if (Math.random() > 0.3) {
         setStreak(s => {
           const newStreak = s + 1;
-          if (newStreak % 5 === 0) {
-            setMultiplier(m => Math.min(m + 0.5, 5));
-            setCelebration(true);
-            setTimeout(() => setCelebration(false), 1500);
-          }
+          if (newStreak % 5 === 0) { setMultiplier(m => Math.min(m + 0.5, 5)); setCelebration(true); setTimeout(() => setCelebration(false), 1500); }
           return newStreak;
         });
-      } else {
-        setStreak(0);
-        setMultiplier(1);
-      }
-      
+      } else { setStreak(0); setMultiplier(1); }
       if (Math.random() > 0.85) {
-        const powerUps = ['speed', 'glow', 'foam', 'multiplier'];
-        const selected = powerUps[Math.floor(Math.random() * powerUps.length)];
-        setPowerUp(selected);
+        setPowerUp(['speed', 'glow', 'foam', 'multiplier'][Math.floor(Math.random() * 4)]);
         setPowerUpCount(c => c + 1);
         setTimeout(() => setPowerUp(null), 3000);
       }
     }, 2000);
-    
     return () => clearInterval(interval);
   }, [multiplier]);
   
@@ -614,132 +300,73 @@ const WaveStockSurfer = () => {
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
-    
     ctx.clearRect(0, 0, width, height);
-    
     const history = stock.history;
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    
-    const normalizePrice = (price) => {
-      const normalized = (price - minPrice) / priceRange;
-      return height * 0.8 - normalized * height * 0.5;
-    };
-    
-    const speed = 0.02;
-    const offset = time * speed;
-    
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+    const offset = time * 0.02;
     const points = [];
-    const segments = 60;
-    for (let i = 0; i < segments; i++) {
-      const x = (i / segments) * width;
-      const progress = i / segments;
-      
+    for (let i = 0; i < 60; i++) {
+      const x = (i / 60) * width;
+      const progress = i / 60;
       const historyIndex = progress * (history.length - 1);
       const index = Math.floor(historyIndex);
       const nextIndex = Math.min(index + 1, history.length - 1);
       const t = historyIndex - index;
       const price = history[index] * (1 - t) + history[nextIndex] * t;
-      
-      let y = normalizePrice(price);
-      const waveMotion = Math.sin(progress * Math.PI * 4 - offset * 3) * 8;
-      y += waveMotion;
-      const foamNoise = Math.sin(x * 0.3 + time * 0.5) * 2;
-      y += foamNoise;
-      
+      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
       points.push({ x, y });
     }
-    
     let crestIndex = 0;
     let highestY = height;
-    points.forEach((point, i) => {
-      if (point.y < highestY) {
-        highestY = point.y;
-        crestIndex = i;
-      }
-    });
-    
+    points.forEach((point, i) => { if (point.y < highestY) { highestY = point.y; crestIndex = i; } });
     for (let layer = 0; layer < 3; layer++) {
       ctx.beginPath();
       points.forEach((point, i) => {
-        const layerOffset = layer * 5;
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y + layerOffset);
-        } else {
-          ctx.lineTo(point.x, point.y + layerOffset);
-        }
+        if (i === 0) ctx.moveTo(point.x, point.y + layer * 5);
+        else ctx.lineTo(point.x, point.y + layer * 5);
       });
-      
       ctx.lineTo(width, height);
       ctx.lineTo(0, height);
       ctx.closePath();
-      
       const opacity = 0.25 - layer * 0.05;
       ctx.fillStyle = stock.color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
       ctx.fill();
-      
       ctx.beginPath();
       points.forEach((point, i) => {
-        const layerOffset = layer * 5;
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y + layerOffset);
-        } else {
-          ctx.lineTo(point.x, point.y + layerOffset);
-        }
+        if (i === 0) ctx.moveTo(point.x, point.y + layer * 5);
+        else ctx.lineTo(point.x, point.y + layer * 5);
       });
       ctx.strokeStyle = stock.color + Math.floor((opacity + 0.3) * 255).toString(16).padStart(2, '0');
       ctx.lineWidth = 3;
       ctx.stroke();
     }
-    
-    ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     for (let i = Math.max(0, crestIndex - 3); i < Math.min(points.length, crestIndex + 6); i++) {
       for (let j = 0; j < 3; j++) {
-        const foamX = points[i].x + (Math.random() - 0.5) * 15;
-        const foamY = points[i].y - Math.random() * 15;
         ctx.beginPath();
-        ctx.arc(foamX, foamY, Math.random() * 2 + 1, 0, Math.PI * 2);
+        ctx.arc(points[i].x + (Math.random() - 0.5) * 15, points[i].y - Math.random() * 15, Math.random() * 2 + 1, 0, Math.PI * 2);
         ctx.fill();
       }
     }
-    
     const surferPos = surferPositions[stock.symbol];
     const surferIndex = Math.floor(surferPos.x * (points.length - 1));
     const surferPoint = points[surferIndex];
     const prevPoint = points[Math.max(0, surferIndex - 1)];
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
-    
-    const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
-    
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
-    
     ctx.save();
-    const jumpOffset = surferPos.jumping ? -30 : 0;
-    ctx.translate(surferPoint.x, surferPoint.y - 15 + jumpOffset + verticalOffset);
+    ctx.translate(surferPoint.x, surferPoint.y - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8);
     ctx.rotate(angle);
-    
-    // Flip horizontally based on direction (inverted logic)
-    if (surferPos.direction === 1) {
-      ctx.scale(-1, 1);
-    }
-    
-    if (stock.symbol === selectedStock) {
-      ctx.shadowBlur = 25;
-      ctx.shadowColor = '#00FF00';
-    }
-    
+    const shouldFlip = char?.invertDirection ? (surferPos.direction === -1) : (surferPos.direction === 1);
+    if (shouldFlip) ctx.scale(-1, 1);
+    if (stock.symbol === selectedStock) { ctx.shadowBlur = 25; ctx.shadowColor = '#00FF00'; }
     ctx.font = '32px Arial';
     ctx.fillText(char?.emoji || '🏄‍♂️', -16, 8);
-    
     ctx.restore();
-    
-    const trails = waterTrails[stock.symbol] || [];
-    trails.forEach(particle => {
+    (waterTrails[stock.symbol] || []).forEach(particle => {
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = '#60A5FA';
       ctx.shadowBlur = 5;
@@ -750,10 +377,7 @@ const WaveStockSurfer = () => {
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     });
-    
-    // Draw cutback splashes - BIGGER and BRIGHTER!
-    const splashes = cutbackSplashes[stock.symbol] || [];
-    splashes.forEach(particle => {
+    (cutbackSplashes[stock.symbol] || []).forEach(particle => {
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = '#FFFFFF';
       ctx.shadowBlur = 15;
@@ -764,75 +388,44 @@ const WaveStockSurfer = () => {
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     });
-    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.font = 'bold 12px Arial';
     const startPrice = history[0];
     const endPrice = history[history.length - 1];
     const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
-    
     ctx.fillText(`Start: $${startPrice.toFixed(2)}`, 10, 20);
     ctx.fillText(`Now: $${endPrice.toFixed(2)}`, width - 120, 20);
-    
-    const changeColor = priceChange >= 0 ? '#34D399' : '#F87171';
-    ctx.fillStyle = changeColor;
+    ctx.fillStyle = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
   }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
   
   useEffect(() => {
     let animationFrame;
-    
     const animate = () => {
       timeRef.current += 0.1;
-      
       setWaterTrails(prev => {
         const updated = {};
         Object.keys(prev).forEach(symbol => {
-          updated[symbol] = prev[symbol]
-            .map(particle => ({
-              ...particle,
-              x: particle.x + particle.vx,
-              y: particle.y + particle.vy,
-              vy: particle.vy + 0.2,
-              life: particle.life - 0.02
-            }))
-            .filter(p => p.life > 0);
+          updated[symbol] = prev[symbol].map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.2, life: p.life - 0.02 })).filter(p => p.life > 0);
         });
         return updated;
       });
-      
       setCutbackSplashes(prev => {
         const updated = {};
         Object.keys(prev).forEach(symbol => {
-          updated[symbol] = prev[symbol]
-            .map(particle => ({
-              ...particle,
-              x: particle.x + particle.vx,
-              y: particle.y + particle.vy,
-              vy: particle.vy + 0.3,
-              vx: particle.vx * 0.98,
-              life: particle.life - 0.015
-            }))
-            .filter(p => p.life > 0);
+          updated[symbol] = prev[symbol].map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.3, vx: p.vx * 0.98, life: p.life - 0.015 })).filter(p => p.life > 0);
         });
         return updated;
       });
-      
-      stocks.forEach((stock) => {
-        const canvas = canvasRefs.current[stock.symbol];
-        drawWave(canvas, stock, timeRef.current);
-      });
+      stocks.forEach(stock => drawWave(canvasRefs.current[stock.symbol], stock, timeRef.current));
       animationFrame = requestAnimationFrame(animate);
     };
-    
     animate();
     return () => cancelAnimationFrame(animationFrame);
   }, [stocks, drawWave]);
   
   const selectCharacter = useCallback((stockSymbol, charId) => {
-    if (unlockedChars.includes(charId)) {
-      setSelectedChars(prev => ({ ...prev, [stockSymbol]: charId }));
-    }
+    if (unlockedChars.includes(charId)) setSelectedChars(prev => ({ ...prev, [stockSymbol]: charId }));
   }, [unlockedChars]);
   
   const getCharacter = useCallback((charId) => characters.find(c => c.id === charId), [characters]);
