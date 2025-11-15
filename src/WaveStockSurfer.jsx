@@ -18,18 +18,13 @@ const WaveStockSurfer = () => {
     { id: 'gohan', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D' },
     { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3' },
     { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181' },
-    { id: 'dolphin', name: 'Aqua Glider', emoji: '🐬', unlocked: false, unlock: 'Get 20 cutbacks', color: '#3B82F6' },
-    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' },
-    { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 2000+', color: '#F59E0B' }
+    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' }
   ], []);
   
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
   
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
-  const [cutbackCount, setCutbackCount] = useState(0);
-  const [cutbackPoints, setCutbackPoints] = useState({});
-  const [jumpPoints, setJumpPoints] = useState({});
   
   const generatePriceHistory = useCallback((basePrice, volatility, points) => {
     const history = [basePrice];
@@ -105,32 +100,11 @@ const WaveStockSurfer = () => {
     }), {})
   );
   
-  const [tubeStatus, setTubeStatus] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: { inTube: false, tubePoints: 0 }
-    }), {})
-  );
-  
   const canvasRefs = useRef({});
   const cardRefs = useRef({});
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   const previousX = useRef({});
-  const previousDirection = useRef({});
-  const lastCutbackTime = useRef({});
-  
-  // Initialize cutback points for existing stocks
-  useEffect(() => {
-    const initialCutbackPoints = {};
-    const initialJumpPoints = {};
-    stocks.forEach(stock => {
-      initialCutbackPoints[stock.symbol] = [];
-      initialJumpPoints[stock.symbol] = [];
-    });
-    setCutbackPoints(initialCutbackPoints);
-    setJumpPoints(initialJumpPoints);
-  }, []);
   
   // Detect mobile
   useEffect(() => {
@@ -141,122 +115,6 @@ const WaveStockSurfer = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
-  // Tube detection
-  useEffect(() => {
-    const tubeInterval = setInterval(() => {
-      stocks.forEach(stock => {
-        const surferPos = surferPositions[stock.symbol];
-        const canvas = canvasRefs.current[stock.symbol];
-        if (!canvas || !surferPos) return;
-        
-        const width = canvas.width;
-        const height = canvas.height;
-        const history = stock.history;
-        const minPrice = Math.min(...history);
-        const maxPrice = Math.max(...history);
-        const priceRange = maxPrice - minPrice || 1;
-        
-        const normalizePrice = (price) => {
-          const normalized = (price - minPrice) / priceRange;
-          return height * 0.8 - normalized * height * 0.5;
-        };
-        
-        const historyIndex = surferPos.x * (history.length - 1);
-        const index = Math.floor(historyIndex);
-        const nextIndex = Math.min(index + 1, history.length - 1);
-        const t = historyIndex - index;
-        const price = history[index] * (1 - t) + history[nextIndex] * t;
-        
-        let waveY = normalizePrice(price);
-        const waveMotion = Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-        waveY += waveMotion;
-        
-        const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
-        const surferY = waveY + verticalOffset;
-        
-        // Find crest position - more accurate with more samples
-        let crestX = 0;
-        let highestY = height;
-        let crestY = height;
-        for (let i = 0; i < 100; i++) {
-          const progress = i / 100;
-          const hIndex = progress * (history.length - 1);
-          const idx = Math.floor(hIndex);
-          const nextIdx = Math.min(idx + 1, history.length - 1);
-          const t = hIndex - idx;
-          const p = history[idx] * (1 - t) + history[nextIdx] * t;
-          let y = normalizePrice(p);
-          const wm = Math.sin(progress * Math.PI * 4 - timeRef.current * 0.06) * 8;
-          y += wm;
-          if (y < highestY) {
-            highestY = y;
-            crestY = y;
-            crestX = progress;
-          }
-        }
-        
-        // SUPER GENEROUS tube zone - detects anywhere near the tube area
-        const tubeStartX = crestX - 0.15; // Start well before crest
-        const tubeEndX = crestX + 0.35; // Extend much further past crest
-        const isInTubeXRange = surferPos.x >= tubeStartX && surferPos.x <= tubeEndX;
-        
-        // Very generous vertical range - from well above crest to deep below
-        const tubeTopY = crestY - 40; // Big buffer above crest
-        const tubeBottomY = crestY + height * 0.7; // Very deep
-        const isInTubeYRange = surferY >= tubeTopY && surferY <= tubeBottomY;
-        
-        // Also check if surfer is close to the crest horizontally (anywhere near tube counts!)
-        const distanceToCrest = Math.abs(surferPos.x - crestX);
-        const isNearTube = distanceToCrest < 0.2; // Very generous proximity check
-        
-        const isInTube = (isInTubeXRange && isInTubeYRange) || isNearTube;
-        
-        setTubeStatus(prev => {
-          const current = prev[stock.symbol];
-          if (isInTube) {
-            // In tube - start accumulating points immediately!
-            const pointsToAdd = Math.floor(Math.random() * 100) + 30;
-            const newPoints = current.inTube ? current.tubePoints + pointsToAdd : pointsToAdd;
-            
-            // Add to score immediately
-            setScore(s => s + pointsToAdd);
-            
-            return {
-              ...prev,
-              [stock.symbol]: { 
-                inTube: true, 
-                tubePoints: Math.min(newPoints, 100000)
-              }
-            };
-          } else if (!isInTube && current.inTube) {
-            // Exiting tube - show exit notification
-            const surferX = surferPos.x * width;
-            const surferY = waveY + verticalOffset;
-            setCutbackPoints(prev => ({
-              ...prev,
-              [stock.symbol]: [...(prev[stock.symbol] || []), {
-                id: Date.now(),
-                x: surferX,
-                y: surferY - 50,
-                points: current.tubePoints,
-                text: '🌊 TUBE EXIT',
-                life: 1
-              }]
-            }));
-            
-            return {
-              ...prev,
-              [stock.symbol]: { inTube: false, tubePoints: 0 }
-            };
-          }
-          return prev;
-        });
-      });
-    }, 30); // Even faster checking (30ms)
-    
-    return () => clearInterval(tubeInterval);
-  }, [stocks, surferPositions]);
   
   // Target position for smooth movement
   const [targetPositions, setTargetPositions] = useState(
@@ -334,57 +192,6 @@ const WaveStockSurfer = () => {
   // Jump button handler
   const handleJump = () => {
     if (selectedStock) {
-      const surferPos = surferPositions[selectedStock];
-      const canvas = canvasRefs.current[selectedStock];
-      if (!canvas) return;
-      
-      const stock = stocks.find(s => s.symbol === selectedStock);
-      if (!stock) return;
-      
-      const width = canvas.width;
-      const height = canvas.height;
-      const history = stock.history;
-      const minPrice = Math.min(...history);
-      const maxPrice = Math.max(...history);
-      const priceRange = maxPrice - minPrice || 1;
-      
-      const normalizePrice = (price) => {
-        const normalized = (price - minPrice) / priceRange;
-        return height * 0.8 - normalized * height * 0.5;
-      };
-      
-      const historyIndex = surferPos.x * (history.length - 1);
-      const index = Math.floor(historyIndex);
-      const nextIndex = Math.min(index + 1, history.length - 1);
-      const t = historyIndex - index;
-      const price = history[index] * (1 - t) + history[nextIndex] * t;
-      
-      let waveY = normalizePrice(price);
-      const waveMotion = Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-      waveY += waveMotion;
-      
-      const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
-      const surferY = waveY + verticalOffset;
-      
-      // Check if jumping above the wave
-      if (surferPos.y < 0.4) {
-        const jumpPts = Math.floor(Math.random() * 100) + 50;
-        setScore(s => s + jumpPts);
-        
-        const surferX = surferPos.x * width;
-        setCutbackPoints(prev => ({
-          ...prev,
-          [selectedStock]: [...(prev[selectedStock] || []), {
-            id: Date.now(),
-            x: surferX,
-            y: surferY - 70,
-            points: jumpPts,
-            text: '🚀 AIR',
-            life: 1
-          }]
-        }));
-      }
-      
       setSurferPositions(prev => ({
         ...prev,
         [selectedStock]: { ...prev[selectedStock], jumping: true }
@@ -496,61 +303,6 @@ const WaveStockSurfer = () => {
               if (newDirection === -1) {
                 // Big cutback splash when changing from left to right!
                 createCutbackSplash(selectedStock, newX, current.y);
-                
-                // Award cutback points!
-                const now = Date.now();
-                const lastCutback = lastCutbackTime.current[selectedStock] || 0;
-                if (now - lastCutback > 500) { // Prevent spamming
-                  const cutbackPts = Math.floor(Math.random() * 80) + 40;
-                  setScore(s => s + cutbackPts);
-                  setCutbackCount(c => c + 1);
-                  
-                  const canvas = canvasRefs.current[selectedStock];
-                  if (canvas) {
-                    const width = canvas.width;
-                    const stock = stocks.find(s => s.symbol === selectedStock);
-                    if (stock) {
-                      const history = stock.history;
-                      const minPrice = Math.min(...history);
-                      const maxPrice = Math.max(...history);
-                      const priceRange = maxPrice - minPrice || 1;
-                      const height = canvas.height;
-                      
-                      const normalizePrice = (price) => {
-                        const normalized = (price - minPrice) / priceRange;
-                        return height * 0.8 - normalized * height * 0.5;
-                      };
-                      
-                      const historyIndex = newX * (history.length - 1);
-                      const index = Math.floor(historyIndex);
-                      const nextIndex = Math.min(index + 1, history.length - 1);
-                      const t = historyIndex - index;
-                      const price = history[index] * (1 - t) + history[nextIndex] * t;
-                      
-                      let waveY = normalizePrice(price);
-                      const waveMotion = Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
-                      waveY += waveMotion;
-                      const verticalOffset = (current.y - 0.5) * height * 0.8;
-                      
-                      const surferX = newX * width;
-                      const surferY = waveY + verticalOffset;
-                      
-                      setCutbackPoints(prev => ({
-                        ...prev,
-                        [selectedStock]: [...(prev[selectedStock] || []), {
-                          id: Date.now(),
-                          x: surferX,
-                          y: surferY - 50,
-                          points: cutbackPts,
-                          text: '⚡ CUTBACK',
-                          life: 1
-                        }]
-                      }));
-                    }
-                  }
-                  
-                  lastCutbackTime.current[selectedStock] = now;
-                }
               }
               newDirection = 1; // Moving right
             } else if (xDiff < 0) {
@@ -558,61 +310,6 @@ const WaveStockSurfer = () => {
               if (newDirection === 1) {
                 // Big cutback splash when changing from right to left!
                 createCutbackSplash(selectedStock, newX, current.y);
-                
-                // Award cutback points!
-                const now = Date.now();
-                const lastCutback = lastCutbackTime.current[selectedStock] || 0;
-                if (now - lastCutback > 500) { // Prevent spamming
-                  const cutbackPts = Math.floor(Math.random() * 80) + 40;
-                  setScore(s => s + cutbackPts);
-                  setCutbackCount(c => c + 1);
-                  
-                  const canvas = canvasRefs.current[selectedStock];
-                  if (canvas) {
-                    const width = canvas.width;
-                    const stock = stocks.find(s => s.symbol === selectedStock);
-                    if (stock) {
-                      const history = stock.history;
-                      const minPrice = Math.min(...history);
-                      const maxPrice = Math.max(...history);
-                      const priceRange = maxPrice - minPrice || 1;
-                      const height = canvas.height;
-                      
-                      const normalizePrice = (price) => {
-                        const normalized = (price - minPrice) / priceRange;
-                        return height * 0.8 - normalized * height * 0.5;
-                      };
-                      
-                      const historyIndex = newX * (history.length - 1);
-                      const index = Math.floor(historyIndex);
-                      const nextIndex = Math.min(index + 1, history.length - 1);
-                      const t = historyIndex - index;
-                      const price = history[index] * (1 - t) + history[nextIndex] * t;
-                      
-                      let waveY = normalizePrice(price);
-                      const waveMotion = Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
-                      waveY += waveMotion;
-                      const verticalOffset = (current.y - 0.5) * height * 0.8;
-                      
-                      const surferX = newX * width;
-                      const surferY = waveY + verticalOffset;
-                      
-                      setCutbackPoints(prev => ({
-                        ...prev,
-                        [selectedStock]: [...(prev[selectedStock] || []), {
-                          id: Date.now(),
-                          x: surferX,
-                          y: surferY - 50,
-                          points: cutbackPts,
-                          text: '⚡ CUTBACK',
-                          life: 1
-                        }]
-                      }));
-                    }
-                  }
-                  
-                  lastCutbackTime.current[selectedStock] = now;
-                }
               }
               newDirection = -1; // Moving left
             }
@@ -655,6 +352,40 @@ const WaveStockSurfer = () => {
             // Close enough to target, clear it only if not actively touching
             if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
               setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+            }
+          }
+        }
+        
+        // Keyboard controls (override target movement)
+        if (keysPressed.current['ArrowLeft']) {
+          const oldX = newX;
+          newX = Math.max(0.05, newX - 0.02);
+          if (newX < oldX) {
+            if (newDirection === 1) {
+              createCutbackSplash(selectedStock, newX, current.y);
+            }
+            newDirection = -1;
+          }
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowRight']) {
+          const oldX = newX;
+          newX = Math.min(0.95, newX + 0.02);
+          if (newX > oldX) {
+            if (newDirection === -1) {
+              createCutbackSplash(selectedStock, newX, current.y);
+            }
+            newDirection = 1;
+          }
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowUp']) {
+          if (current.hasRocket) {
+            newY = Math.max(-0.2, newY - 0.02);
+          } else {
+            newY = Math.max(0.5, newY - 0.02);
+          }
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowDown']) {
           newY = Math.min(1.5, newY + 0.02);
@@ -808,24 +539,14 @@ const WaveStockSurfer = () => {
       setCelebration(true);
       setTimeout(() => setCelebration(false), 2000);
     }
-    if (cutbackCount >= 20 && !newUnlocked.includes('dolphin')) {
-      newUnlocked.push('dolphin');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
     if (streak >= 10 && !newUnlocked.includes('krillin')) {
       newUnlocked.push('krillin');
       setCelebration(true);
       setTimeout(() => setCelebration(false), 2000);
     }
-    if (score >= 2000 && !newUnlocked.includes('cat')) {
-      newUnlocked.push('cat');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
     
     setUnlockedChars(newUnlocked);
-  }, [streak, score, powerUpCount, unlockedChars, cutbackCount]);
+  }, [streak, score, powerUpCount, unlockedChars]);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -943,63 +664,6 @@ const WaveStockSurfer = () => {
       ctx.stroke();
     }
     
-    // Draw tube/barrel - matching wave design with layered effect
-    const crestPoint = points[crestIndex];
-    if (crestPoint) {
-      ctx.save();
-      
-      const lipStartX = crestPoint.x;
-      const lipStartY = crestPoint.y;
-      const lipCurveOut = 80; // Wider tube
-      const lipHeight = height * 0.5; // Extended tube depth
-      
-      // Draw tube lip with same layered style as wave
-      for (let tubeLayer = 0; tubeLayer < 3; tubeLayer++) {
-        ctx.beginPath();
-        ctx.moveTo(lipStartX, lipStartY + tubeLayer * 3);
-        
-        // Create smooth curving tube lip
-        const cp1x = lipStartX + lipCurveOut * 0.4;
-        const cp1y = lipStartY - 25 + tubeLayer * 3;
-        const cp2x = lipStartX + lipCurveOut * 0.7;
-        const cp2y = lipStartY + lipHeight * 0.2 + tubeLayer * 3;
-        const endX = lipStartX + lipCurveOut * 0.6;
-        const endY = lipStartY + lipHeight + tubeLayer * 3;
-        
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
-        
-        // Close the tube shape
-        ctx.lineTo(lipStartX + 15, endY);
-        ctx.lineTo(lipStartX, lipStartY + tubeLayer * 3);
-        ctx.closePath();
-        
-        // Use same opacity pattern as wave layers
-        const tubeOpacity = 0.2 - tubeLayer * 0.04;
-        ctx.fillStyle = stock.color + Math.floor(tubeOpacity * 255).toString(16).padStart(2, '0');
-        ctx.fill();
-        
-        // Stroke with same style as wave
-        ctx.beginPath();
-        ctx.moveTo(lipStartX, lipStartY + tubeLayer * 3);
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
-        ctx.strokeStyle = stock.color + Math.floor((tubeOpacity + 0.2) * 255).toString(16).padStart(2, '0');
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-      
-      // Add light shimmer/spray at the lip edge
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      for (let i = 0; i < 6; i++) {
-        const shimmerX = lipStartX + (Math.random() * 40) + 10;
-        const shimmerY = lipStartY - Math.random() * 15;
-        ctx.beginPath();
-        ctx.arc(shimmerX, shimmerY, Math.random() * 2 + 1, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      
-      ctx.restore();
-    }
-    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     for (let i = Math.max(0, crestIndex - 3); i < Math.min(points.length, crestIndex + 6); i++) {
       for (let j = 0; j < 3; j++) {
@@ -1068,61 +732,19 @@ const WaveStockSurfer = () => {
       ctx.globalAlpha = 1;
     });
     
-    // Draw cutback/tube/jump points notifications
-    const pointNotifications = cutbackPoints[stock.symbol] || [];
-    pointNotifications.forEach(notification => {
-      ctx.save();
-      ctx.globalAlpha = notification.life;
-      ctx.font = 'bold 20px Arial';
-      ctx.fillStyle = '#FFD700';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 3;
-      ctx.textAlign = 'center';
-      
-      ctx.strokeText(notification.text, notification.x, notification.y);
-      ctx.fillText(notification.text, notification.x, notification.y);
-      
-      ctx.font = 'bold 24px Arial';
-      ctx.strokeText(`+${notification.points}`, notification.x, notification.y + 25);
-      ctx.fillText(`+${notification.points}`, notification.x, notification.y + 25);
-      
-      ctx.restore();
-    });
-    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.font = 'bold 12px Arial';
     const startPrice = history[0];
     const endPrice = history[history.length - 1];
     const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
     
-    ctx.fillText(`Start: ${startPrice.toFixed(2)}`, 10, 20);
-    ctx.fillText(`Now: ${endPrice.toFixed(2)}`, width - 120, 20);
+    ctx.fillText(`Start: $${startPrice.toFixed(2)}`, 10, 20);
+    ctx.fillText(`Now: $${endPrice.toFixed(2)}`, width - 120, 20);
     
     const changeColor = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillStyle = changeColor;
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
-    
-    // Draw tube points notification
-    const tubeState = tubeStatus[stock.symbol];
-    if (tubeState && tubeState.inTube && tubeState.tubePoints > 0) {
-      ctx.save();
-      ctx.font = 'bold 18px Arial';
-      ctx.fillStyle = '#FFD700';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 2;
-      ctx.textAlign = 'center';
-      
-      const notificationY = height * 0.15;
-      ctx.strokeText('🌊 IN THE TUBE! 🌊', width / 2, notificationY);
-      ctx.fillText('🌊 IN THE TUBE! 🌊', width / 2, notificationY);
-      
-      ctx.font = 'bold 28px Arial';
-      ctx.strokeText(`+${tubeState.tubePoints.toLocaleString()}`, width / 2, notificationY + 30);
-      ctx.fillText(`+${tubeState.tubePoints.toLocaleString()}`, width / 2, notificationY + 30);
-      
-      ctx.restore();
-    }
-  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, tubeStatus, cutbackPoints]);
+  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
   
   useEffect(() => {
     let animationFrame;
@@ -1157,21 +779,6 @@ const WaveStockSurfer = () => {
               vy: particle.vy + 0.3,
               vx: particle.vx * 0.98,
               life: particle.life - 0.015
-            }))
-            .filter(p => p.life > 0);
-        });
-        return updated;
-      });
-      
-      // Update cutback/tube/jump points animations
-      setCutbackPoints(prev => {
-        const updated = {};
-        Object.keys(prev).forEach(symbol => {
-          updated[symbol] = prev[symbol]
-            .map(point => ({
-              ...point,
-              y: point.y - 2,
-              life: point.life - 0.02
             }))
             .filter(p => p.life > 0);
         });
@@ -1216,9 +823,7 @@ const WaveStockSurfer = () => {
       setRockets(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setWaterTrails(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setCutbackSplashes(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
-      setTubeStatus(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: { inTube: false, tubePoints: 0 } }));
       setTargetPositions(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: null }));
-      setCutbackPoints(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
       setShowAddForm(false);
@@ -1252,20 +857,10 @@ const WaveStockSurfer = () => {
       delete newSplashes[symbol];
       return newSplashes;
     });
-    setTubeStatus(prev => {
-      const newTube = { ...prev };
-      delete newTube[symbol];
-      return newTube;
-    });
     setTargetPositions(prev => {
       const newTargets = { ...prev };
       delete newTargets[symbol];
       return newTargets;
-    });
-    setCutbackPoints(prev => {
-      const newPoints = { ...prev };
-      delete newPoints[symbol];
-      return newPoints;
     });
     if (selectedStock === symbol) {
       setSelectedStock(stocks[0]?.symbol || null);
@@ -1377,7 +972,6 @@ const WaveStockSurfer = () => {
               <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
               <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
               <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-              <p>NEW: Get TUBE POINTS when surfing the barrel! 🌊 Get CUTBACK POINTS for sharp turns! ⚡ Get AIR POINTS for jumps! 🚀</p>
             </div>
           </div>
         )}
@@ -1446,7 +1040,7 @@ const WaveStockSurfer = () => {
                 />
                 
                 <div className="border-t border-white/20 pt-3">
-                  <div className="text-blue-200 text-xs mb-2">Select Surfer ({characters.length} total):</div>
+                  <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
                   <div className="flex gap-2 flex-wrap">
                     {characters.map(char => {
                       const isUnlocked = unlockedChars.includes(char.id);
@@ -1535,7 +1129,7 @@ const WaveStockSurfer = () => {
         )}
         
         <div className="text-center text-blue-200 text-sm mb-6">
-          💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Cutbacks: {cutbackCount} • Build streaks to unlock more!
+          💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
         </div>
 
         <div className="flex justify-center gap-4 mb-6">
@@ -1578,37 +1172,3 @@ const WaveStockSurfer = () => {
 };
 
 export default WaveStockSurfer;
-            }
-          }
-        }
-        
-        // Keyboard controls (override target movement)
-        if (keysPressed.current['ArrowLeft']) {
-          const oldX = newX;
-          newX = Math.max(0.05, newX - 0.02);
-          if (newX < oldX) {
-            if (newDirection === 1) {
-              createCutbackSplash(selectedStock, newX, current.y);
-            }
-            newDirection = -1;
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowRight']) {
-          const oldX = newX;
-          newX = Math.min(0.95, newX + 0.02);
-          if (newX > oldX) {
-            if (newDirection === -1) {
-              createCutbackSplash(selectedStock, newX, current.y);
-            }
-            newDirection = 1;
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowUp']) {
-          if (current.hasRocket) {
-            newY = Math.max(-0.2, newY - 0.02);
-          } else {
-            newY = Math.max(0.5, newY - 0.02);
-          }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
