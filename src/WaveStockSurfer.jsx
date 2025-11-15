@@ -214,27 +214,23 @@ const WaveStockSurfer = () => {
         
         setTubeStatus(prev => {
           const current = prev[stock.symbol];
-          if (isInTube && !current.inTube) {
-            // Entering tube
-            return {
-              ...prev,
-              [stock.symbol]: { inTube: true, tubePoints: 1 }
-            };
-          } else if (isInTube && current.inTube) {
-            // Still in tube, increment points more frequently
+          if (isInTube) {
+            // In tube - start accumulating points immediately!
+            const pointsToAdd = Math.floor(Math.random() * 100) + 30;
+            const newPoints = current.inTube ? current.tubePoints + pointsToAdd : pointsToAdd;
+            
+            // Add to score immediately
+            setScore(s => s + pointsToAdd);
+            
             return {
               ...prev,
               [stock.symbol]: { 
                 inTube: true, 
-                tubePoints: Math.min(current.tubePoints + Math.floor(Math.random() * 100) + 30, 100000)
+                tubePoints: Math.min(newPoints, 100000)
               }
             };
           } else if (!isInTube && current.inTube) {
-            // Exiting tube - add to score
-            const points = current.tubePoints;
-            setScore(s => s + points);
-            
-            // Show tube points notification
+            // Exiting tube - show exit notification
             const surferX = surferPos.x * width;
             const surferY = waveY + verticalOffset;
             setCutbackPoints(prev => ({
@@ -243,8 +239,8 @@ const WaveStockSurfer = () => {
                 id: Date.now(),
                 x: surferX,
                 y: surferY - 50,
-                points: points,
-                text: '🌊 TUBE',
+                points: current.tubePoints,
+                text: '🌊 TUBE EXIT',
                 life: 1
               }]
             }));
@@ -812,17 +808,17 @@ const WaveStockSurfer = () => {
       setCelebration(true);
       setTimeout(() => setCelebration(false), 2000);
     }
+    if (cutbackCount >= 20 && !newUnlocked.includes('dolphin')) {
+      newUnlocked.push('dolphin');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
     if (streak >= 10 && !newUnlocked.includes('krillin')) {
       newUnlocked.push('krillin');
       setCelebration(true);
       setTimeout(() => setCelebration(false), 2000);
     }
-    if (score >= 5000 && !newUnlocked.includes('dolphin')) {
-      newUnlocked.push('dolphin');
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2000);
-    }
-    if (cutbackCount >= 50 && !newUnlocked.includes('cat')) {
+    if (score >= 2000 && !newUnlocked.includes('cat')) {
       newUnlocked.push('cat');
       setCelebration(true);
       setTimeout(() => setCelebration(false), 2000);
@@ -1450,7 +1446,7 @@ const WaveStockSurfer = () => {
                 />
                 
                 <div className="border-t border-white/20 pt-3">
-                  <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
+                  <div className="text-blue-200 text-xs mb-2">Select Surfer ({characters.length} total):</div>
                   <div className="flex gap-2 flex-wrap">
                     {characters.map(char => {
                       const isUnlocked = unlockedChars.includes(char.id);
