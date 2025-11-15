@@ -118,10 +118,7 @@ const WaveStockSurfer = () => {
   // Track if user is holding touch
   const [isTouching, setIsTouching] = useState(false);
   
-  // Track touch start position for relative movement
-  const touchStartPositions = useRef({});
-  
-  // Handle canvas touch/click for mobile - relative dragging
+  // Handle canvas touch/click for mobile
   const handleCanvasTouch = useCallback((e, stockSymbol) => {
     if (stockSymbol !== selectedStock) return;
     
@@ -133,42 +130,20 @@ const WaveStockSurfer = () => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
-    // If this is a new touch, store the starting position
-    if (!touchStartPositions.current[stockSymbol]) {
-      touchStartPositions.current[stockSymbol] = {
-        x: clientX,
-        y: clientY,
-        startSurferX: surferPositions[stockSymbol].x,
-        startSurferY: surferPositions[stockSymbol].y
-      };
-      return;
-    }
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     
-    // Calculate relative movement from touch start
-    const touchStart = touchStartPositions.current[stockSymbol];
-    const deltaX = (clientX - touchStart.x) / rect.width;
-    const deltaY = (clientY - touchStart.y) / rect.height;
+    const normalizedX = Math.max(0.05, Math.min(0.95, x / rect.width));
+    const normalizedY = Math.max(0.3, Math.min(1.0, y / rect.height));
     
-    // Apply relative movement to surfer position
-    const newX = Math.max(0.05, Math.min(0.95, touchStart.startSurferX + deltaX));
-    const newY = Math.max(0.3, Math.min(1.0, touchStart.startSurferY + deltaY));
-    
-    setSurferPositions(prev => ({
+    setTargetPositions(prev => ({
       ...prev,
-      [stockSymbol]: {
-        ...prev[stockSymbol],
-        x: newX,
-        y: newY
-      }
+      [stockSymbol]: { x: normalizedX, y: normalizedY }
     }));
-  }, [selectedStock, surferPositions]);
+  }, [selectedStock]);
   
-  const handleCanvasTouchEnd = useCallback((stockSymbol) => {
+  const handleCanvasTouchEnd = useCallback(() => {
     setIsTouching(false);
-    // Clear the touch start position for this stock
-    if (touchStartPositions.current[stockSymbol]) {
-      delete touchStartPositions.current[stockSymbol];
-    }
   }, []);
   
   // Jump button handler
@@ -223,9 +198,9 @@ const WaveStockSurfer = () => {
         let newX = current.x;
         let newY = current.y;
         
-        // Smooth movement towards target position (only if holding touch)
+        // Smooth movement towards target position
         const target = targetPositions[selectedStock];
-        if (target && isTouching) {
+        if (target) {
           const deltaX = target.x - current.x;
           const deltaY = target.y - current.y;
           const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -234,6 +209,9 @@ const WaveStockSurfer = () => {
             const speed = 0.04; // Adjust for smoother/faster movement
             newX = current.x + (deltaX / distance) * Math.min(speed, distance);
             newY = current.y + (deltaY / distance) * Math.min(speed, distance);
+          } else {
+            // Close enough to target, clear it
+            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
           }
         }
         
@@ -267,7 +245,7 @@ const WaveStockSurfer = () => {
     }, 30);
     
     return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, isTouching]);
+  }, [selectedStock, targetPositions]);
   
   useEffect(() => {
     const trailInterval = setInterval(() => {
@@ -635,7 +613,7 @@ const WaveStockSurfer = () => {
             🏄‍♂️ Wave Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
-            {isMobile ? 'Hold & drag on wave to surf! Release to glide! Tap jump to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
+            {isMobile ? 'Touch the wave to surf! Tap jump button to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
           </p>
         </div>
         
@@ -679,12 +657,8 @@ const WaveStockSurfer = () => {
               {isMobile ? (
                 <>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">👆 Hold & Drag</span>
-                    <span>Surf where you touch! 💧</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">🤚 Release</span>
-                    <span>Glide freely!</span>
+                    <span className="px-3 py-1 bg-white/20 rounded">👆 Touch Wave</span>
+                    <span>Surf where you tap! 💧</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
                     <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
@@ -795,12 +769,8 @@ const WaveStockSurfer = () => {
                   width={600}
                   height={200}
                   className="w-full h-48 mb-3 rounded-lg cursor-pointer"
-                  onTouchStart={(e) => {
-                    setIsTouching(true);
-                    handleCanvasTouch(e, stock.symbol);
-                  }}
+                  onTouchStart={(e) => handleCanvasTouch(e, stock.symbol)}
                   onTouchMove={(e) => handleCanvasTouch(e, stock.symbol)}
-                  onTouchEnd={handleCanvasTouchEnd}
                   onClick={(e) => handleCanvasTouch(e, stock.symbol)}
                   style={{ touchAction: 'none' }}
                 />
