@@ -297,7 +297,7 @@ const WaveStockSurfer = () => {
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    const normalizePrice = (price) => height * 0.5 + ((price - minPrice) / priceRange) * height * 0.1; // Very gentle slope
+    const normalizePrice = (price) => height * 0.5; // Flat line for stable positioning
     const historyIndex = x * (history.length - 1);
     const index = Math.floor(historyIndex);
     const nextIndex = Math.min(index + 1, history.length - 1);
@@ -325,8 +325,26 @@ const WaveStockSurfer = () => {
         let newY = current.y;
         let newDirection = current.direction;
         if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
-        
-        // Handle touch/mouse targeting
+        const stock = stocks.find(s => s.symbol === selectedStock);
+        if (stock && stock.history.length > 0 && !current.jumping) {
+          const canvas = canvasRefs.current[selectedStock];
+          if (canvas) {
+            const height = canvas.height;
+            const history = stock.history;
+            const minPrice = Math.min(...history);
+            const maxPrice = Math.max(...history);
+            const priceRange = maxPrice - minPrice || 1;
+            const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+            const historyIndex = current.x * (history.length - 1);
+            const index = Math.floor(historyIndex);
+            const nextIndex = Math.min(index + 1, history.length - 1);
+            const t = historyIndex - index;
+            const price = history[index] * (1 - t) + history[nextIndex] * t;
+            const waveY = normalizePrice(price) + Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+            newY = Math.max(waveNormalizedY, newY);
+          }
+        }
         const target = targetPositions[selectedStock];
         if (target) {
           const deltaX = target.x - current.x;
@@ -335,16 +353,34 @@ const WaveStockSurfer = () => {
           if (distance > 0.005) {
             const speed = 0.08;
             newX = current.x + (deltaX / distance) * Math.min(speed, distance);
-            newY = current.y + (deltaY / distance) * Math.min(speed, distance);
             const xDiff = newX - previousX.current[selectedStock];
             if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
             else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
+            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
+            if (!current.jumping && stock && stock.history.length > 0) {
+              const canvas = canvasRefs.current[selectedStock];
+              if (canvas) {
+                const height = canvas.height;
+                const history = stock.history;
+                const minPrice = Math.min(...history);
+                const maxPrice = Math.max(...history);
+                const priceRange = maxPrice - minPrice || 1;
+                const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+                const historyIndex = newX * (history.length - 1);
+                const index = Math.floor(historyIndex);
+                const nextIndex = Math.min(index + 1, history.length - 1);
+                const t = historyIndex - index;
+                const price = history[index] * (1 - t) + history[nextIndex] * t;
+                const waveY = normalizePrice(price) + Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
+                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+                targetY = Math.max(waveNormalizedY, targetY);
+              }
+            }
+            newY = targetY;
           } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
             setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
           }
         }
-        
-        // Handle keyboard controls
         if (keysPressed.current['ArrowLeft']) {
           const oldX = newX;
           newX = Math.max(0.05, newX - 0.02);
@@ -359,23 +395,16 @@ const WaveStockSurfer = () => {
           if (newX > oldX) newDirection = 1;
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
-        if (keysPressed.current['ArrowUp']) { 
-          newY = Math.max(0.1, newY - 0.02); 
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
-        }
-        if (keysPressed.current['ArrowDown']) { 
-          newY = Math.min(1.5, newY + 0.02); 
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
-        }
-        
+        if (keysPressed.current['ArrowUp']) { newY = Math.max(current.hasRocket ? -0.2 : 0.5, newY - 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
         previousX.current[selectedStock] = newX;
         return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
       });
     }, 16);
     return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, createCutbackSplash]);
-
-useEffect(() => {
+  }, [selectedStock, targetPositions, stocks, createCutbackSplash]);
+  
+  useEffect(() => {
     const trailInterval = setInterval(() => {
       stocks.forEach(stock => {
         const surferPos = surferPositions[stock.symbol];
@@ -387,7 +416,7 @@ useEffect(() => {
         const minPrice = Math.min(...history);
         const maxPrice = Math.max(...history);
         const priceRange = maxPrice - minPrice || 1;
-        const normalizePrice = (price) => height * 0.5 + ((price - minPrice) / priceRange) * height * 0.05; // Very subtle 5% slope
+        const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
         const historyIndex = surferPos.x * (history.length - 1);
         const index = Math.floor(historyIndex);
         const nextIndex = Math.min(index + 1, history.length - 1);
@@ -395,9 +424,7 @@ useEffect(() => {
         const price = history[index] * (1 - t) + history[nextIndex] * t;
         const baseY = normalizePrice(price) + Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
         const surferX = surferPos.x * width;
-        const yOffset = (surferPos.y - 0.5) * height * 0.4;
-const jumpOffset = surferPos.jumping ? -30 : 0;
-const surferY = baseY + yOffset + jumpOffset - 15;
+        const surferY = baseY - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8;
         for (let i = 0; i < 2; i++) {
           const spreadAngle = (Math.random() - 0.5) * Math.PI / 3;
           const speed = Math.random() * 3 + 2;
@@ -454,7 +481,7 @@ const surferY = baseY + yOffset + jumpOffset - 15;
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    const normalizePrice = (price) => height * 0.5; // Flat line for stable positioning
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
     const offset = time * 0.02;
     const points = [];
     for (let i = 0; i < 60; i++) {
@@ -465,7 +492,7 @@ const surferY = baseY + yOffset + jumpOffset - 15;
       const nextIndex = Math.min(index + 1, history.length - 1);
       const t = historyIndex - index;
       const price = history[index] * (1 - t) + history[nextIndex] * t;
-      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 20 + Math.sin(x * 0.3 + time * 0.5) * 5;
+      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
       points.push({ x, y });
     }
     let crestIndex = 0;
@@ -507,15 +534,9 @@ const surferY = baseY + yOffset + jumpOffset - 15;
     const prevPoint = points[Math.max(0, surferIndex - 1)];
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
-    const baseWaveY = surferPoint.y;
-    const yOffset = (surferPos.y - 0.5) * height * 0.4;
-    const jumpOffset = surferPos.jumping ? -30 : 0;
-    const finalY = baseWaveY + yOffset + jumpOffset - 15;
-    
     ctx.save();
-    ctx.translate(surferPos.x * width, finalY);
+    ctx.translate(surferPoint.x, surferPoint.y - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8);
     ctx.rotate(angle);
-
     const shouldFlip = char?.invertDirection ? (surferPos.direction === -1) : (surferPos.direction === 1);
     if (shouldFlip) ctx.scale(-1, 1);
     if (stock.symbol === selectedStock) { ctx.shadowBlur = 25; ctx.shadowColor = '#00FF00'; }
@@ -554,7 +575,7 @@ const surferY = baseY + yOffset + jumpOffset - 15;
     ctx.fillStyle = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
   }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
-
+  
   useEffect(() => {
     let animationFrame;
     const animate = () => {
