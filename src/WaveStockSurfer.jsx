@@ -39,11 +39,20 @@ const WaveStockSurfer = () => {
   }, []);
   
   const initialStocks = useMemo(() => [
-    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(500000, 0.045, 750000), selectedChar: 'goku' },
-    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
-    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
-    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
-  ], [generatePriceHistory]);
+  { 
+    symbol: 'GME', 
+    color: '#EC4899', 
+    history: (() => {
+      const raw = generatePriceHistory(25, 0.12, 500); // generate natural-looking wave
+      const scaleFactor = 500000 / raw[raw.length - 1]; // scale so last price is ~500,000
+      return raw.map(p => p * scaleFactor);
+    })(),
+    selectedChar: 'goku' 
+  },
+  { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
+  { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
+  { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
+], [generatePriceHistory]);
   
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
