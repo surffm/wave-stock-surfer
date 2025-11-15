@@ -100,6 +100,13 @@ const WaveStockSurfer = () => {
     }), {})
   );
   
+  const [tubeStatus, setTubeStatus] = useState(
+    stocks.reduce((acc, stock) => ({
+      ...acc,
+      [stock.symbol]: { inTube: false, tubePoints: 0 }
+    }), {})
+  );
+  
   const canvasRefs = useRef({});
   const cardRefs = useRef({});
   const timeRef = useRef(0);
@@ -107,6 +114,105 @@ const WaveStockSurfer = () => {
   const previousX = useRef({});
   
   // Detect mobile
+  useEffect(() => {
+    const tubeInterval = setInterval(() => {
+      stocks.forEach(stock => {
+        const surferPos = surferPositions[stock.symbol];
+        const canvas = canvasRefs.current[stock.symbol];
+        if (!canvas || !surferPos) return;
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        const history = stock.history;
+        const minPrice = Math.min(...history);
+        const maxPrice = Math.max(...history);
+        const priceRange = maxPrice - minPrice || 1;
+        
+        const normalizePrice = (price) => {
+          const normalized = (price - minPrice) / priceRange;
+          return height * 0.8 - normalized * height * 0.5;
+        };
+        
+        const historyIndex = surferPos.x * (history.length - 1);
+        const index = Math.floor(historyIndex);
+        const nextIndex = Math.min(index + 1, history.length - 1);
+        const t = historyIndex - index;
+        const price = history[index] * (1 - t) + history[nextIndex] * t;
+        
+        let waveY = normalizePrice(price);
+        const waveMotion = Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+        waveY += waveMotion;
+        
+        const verticalOffset = (surferPos.y - 0.5) * height * 0.8;
+        const surferY = waveY + verticalOffset;
+        
+        // Check if surfer is in the tube (under the folding lip)
+        // Tube zone is from the crest extending down and forward
+        const tubeZoneX = surferPos.x * width;
+        const tubeStartX = (historyIndex / (history.length - 1)) * width;
+        
+        // Find crest position
+        let crestX = 0;
+        let highestY = height;
+        for (let i = 0; i < 60; i++) {
+          const progress = i / 60;
+          const hIndex = progress * (history.length - 1);
+          const idx = Math.floor(hIndex);
+          const nextIdx = Math.min(idx + 1, history.length - 1);
+          const t = hIndex - idx;
+          const p = history[idx] * (1 - t) + history[nextIdx] * t;
+          let y = normalizePrice(p);
+          const wm = Math.sin(progress * Math.PI * 4 - timeRef.current * 0.06) * 8;
+          y += wm;
+          if (y < highestY) {
+            highestY = y;
+            crestX = progress;
+          }
+        }
+        
+        // Tube exists in a zone after the crest
+        const isInTubeXRange = surferPos.x > crestX && surferPos.x < (crestX + 0.15);
+        
+        // Tube zone is deep - from wave top down to 60% of height
+        const tubeTopY = waveY;
+        const tubeBottomY = waveY + height * 0.4;
+        const isInTubeYRange = surferY >= tubeTopY && surferY <= tubeBottomY;
+        
+        const isInTube = isInTubeXRange && isInTubeYRange;
+        
+        setTubeStatus(prev => {
+          const current = prev[stock.symbol];
+          if (isInTube && !current.inTube) {
+            // Entering tube
+            return {
+              ...prev,
+              [stock.symbol]: { inTube: true, tubePoints: 1 }
+            };
+          } else if (isInTube && current.inTube) {
+            // Still in tube, increment points
+            return {
+              ...prev,
+              [stock.symbol]: { 
+                inTube: true, 
+                tubePoints: Math.min(current.tubePoints + Math.floor(Math.random() * 1000) + 100, 100000)
+              }
+            };
+          } else if (!isInTube && current.inTube) {
+            // Exiting tube - add to score
+            setScore(s => s + current.tubePoints);
+            return {
+              ...prev,
+              [stock.symbol]: { inTube: false, tubePoints: 0 }
+            };
+          }
+          return prev;
+        });
+      });
+    }, 100);
+    
+    return () => clearInterval(tubeInterval);
+  }, [stocks, surferPositions]);
+  
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -664,6 +770,66 @@ const WaveStockSurfer = () => {
       ctx.stroke();
     }
     
+    // Draw tube/barrel - a big folding lip at crest
+    const crestPoint = points[crestIndex];
+    if (crestPoint) {
+      ctx.save();
+      
+      // Create the tube lip that folds over
+      const lipStartX = crestPoint.x;
+      const lipStartY = crestPoint.y;
+      const lipCurveOut = 60; // How far the lip extends out
+      const lipHeight = height * 0.6; // Tube goes deep down the wave
+      
+      // Draw the folding tube lip
+      ctx.beginPath();
+      ctx.moveTo(lipStartX, lipStartY);
+      
+      // Curve out and down creating the barrel
+      const cp1x = lipStartX + lipCurveOut;
+      const cp1y = lipStartY - 30;
+      const cp2x = lipStartX + lipCurveOut + 20;
+      const cp2y = lipStartY + lipHeight * 0.3;
+      const endX = lipStartX + 40;
+      const endY = lipStartY + lipHeight;
+      
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+      
+      // Connect back to create the tube interior
+      ctx.lineTo(lipStartX + 10, endY);
+      ctx.lineTo(lipStartX, lipStartY);
+      ctx.closePath();
+      
+      // Gradient for tube interior - darker inside, lighter at edges
+      const tubeGradient = ctx.createLinearGradient(lipStartX, lipStartY, lipStartX + lipCurveOut, lipStartY + lipHeight / 2);
+      tubeGradient.addColorStop(0, 'rgba(100, 180, 255, 0.3)');
+      tubeGradient.addColorStop(0.4, 'rgba(50, 120, 200, 0.5)');
+      tubeGradient.addColorStop(1, 'rgba(20, 60, 120, 0.7)');
+      
+      ctx.fillStyle = tubeGradient;
+      ctx.fill();
+      
+      // Outer edge highlight
+      ctx.beginPath();
+      ctx.moveTo(lipStartX, lipStartY);
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      
+      // Add shimmer/spray at the lip
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const shimmerX = lipStartX + (Math.random() * 50) + 10;
+        const shimmerY = lipStartY - Math.random() * 20;
+        ctx.arc(shimmerX, shimmerY, Math.random() * 3 + 1, 0, Math.PI * 2);
+      }
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fill();
+      
+      ctx.restore();
+    }
+    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     for (let i = Math.max(0, crestIndex - 3); i < Math.min(points.length, crestIndex + 6); i++) {
       for (let j = 0; j < 3; j++) {
@@ -744,7 +910,28 @@ const WaveStockSurfer = () => {
     const changeColor = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillStyle = changeColor;
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
-  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
+    
+    // Draw tube points notification
+    const tubeState = tubeStatus[stock.symbol];
+    if (tubeState && tubeState.inTube && tubeState.tubePoints > 0) {
+      ctx.save();
+      ctx.font = 'bold 24px Arial';
+      ctx.fillStyle = '#FFD700';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'center';
+      
+      const notificationY = height * 0.3;
+      ctx.strokeText('🌊 TUBE POINTS! 🌊', width / 2, notificationY);
+      ctx.fillText('🌊 TUBE POINTS! 🌊', width / 2, notificationY);
+      
+      ctx.font = 'bold 36px Arial';
+      ctx.strokeText(`+${tubeState.tubePoints.toLocaleString()}`, width / 2, notificationY + 40);
+      ctx.fillText(`+${tubeState.tubePoints.toLocaleString()}`, width / 2, notificationY + 40);
+      
+      ctx.restore();
+    }
+  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, tubeStatus]);
   
   useEffect(() => {
     let animationFrame;
@@ -823,6 +1010,7 @@ const WaveStockSurfer = () => {
       setRockets(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setWaterTrails(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setCutbackSplashes(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
+      setTubeStatus(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: { inTube: false, tubePoints: 0 } }));
       setTargetPositions(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: null }));
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
@@ -856,6 +1044,11 @@ const WaveStockSurfer = () => {
       const newSplashes = { ...prev };
       delete newSplashes[symbol];
       return newSplashes;
+    });
+    setTubeStatus(prev => {
+      const newTube = { ...prev };
+      delete newTube[symbol];
+      return newTube;
     });
     setTargetPositions(prev => {
       const newTargets = { ...prev };
