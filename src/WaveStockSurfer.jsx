@@ -115,6 +115,9 @@ const WaveStockSurfer = () => {
     }), {})
   );
   
+  // Track if user is holding touch
+  const [isTouching, setIsTouching] = useState(false);
+  
   // Handle canvas touch/click for mobile
   const handleCanvasTouch = useCallback((e, stockSymbol) => {
     if (stockSymbol !== selectedStock) return;
@@ -138,6 +141,10 @@ const WaveStockSurfer = () => {
       [stockSymbol]: { x: normalizedX, y: normalizedY }
     }));
   }, [selectedStock]);
+  
+  const handleCanvasTouchEnd = useCallback(() => {
+    setIsTouching(false);
+  }, []);
   
   // Jump button handler
   const handleJump = () => {
