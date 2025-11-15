@@ -510,19 +510,6 @@ const yOffset = (surferPos.y - 0.5) * height * 0.4;
 const jumpOffset = surferPos.jumping ? -30 : 0;
 const finalY = baseWaveY + yOffset + jumpOffset - 15;
 
-const surferPos = surferPositions[stock.symbol];
-    if (!surferPos) return;
-    const surferIndex = Math.floor(surferPos.x * (points.length - 1));
-    const surferPoint = points[surferIndex];
-    const prevPoint = points[Math.max(0, surferIndex - 1)];
-    const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
-    const char = characters.find(c => c.id === selectedChars[stock.symbol]);
-    
-    const baseWaveY = surferPoint.y;
-    const yOffset = (surferPos.y - 0.5) * height * 0.4;
-    const jumpOffset = surferPos.jumping ? -30 : 0;
-    const finalY = baseWaveY + yOffset + jumpOffset - 15;
-    
     ctx.save();
     ctx.translate(surferPoint.x, finalY);
     ctx.rotate(angle);
