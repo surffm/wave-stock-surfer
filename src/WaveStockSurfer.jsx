@@ -39,7 +39,7 @@ const WaveStockSurfer = () => {
   }, []);
   
   const initialStocks = useMemo(() => [
-    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(500,000, 0.045, 750,000), selectedChar: 'goku' },
+    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(500000, 0.045, 750000), selectedChar: 'goku' },
     { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
     { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
     { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
