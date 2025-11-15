@@ -721,9 +721,12 @@ if (char) {
   }
 
   ctx.font = '32px Arial';
-  ctx.fillText(char.emoji, -16, 8);
-
-  ctx.restore();
+ctx.save();
+ctx.translate(0, 0); // keeps your current position
+const shouldFlip = (direction === 1) !== (char.flip || false);
+ctx.scale(shouldFlip ? -1 : 1, 1);
+ctx.fillText(char.emoji, -16, 8);
+ctx.restore();
 }
    
     
