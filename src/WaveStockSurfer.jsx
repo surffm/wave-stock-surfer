@@ -528,55 +528,35 @@ const WaveStockSurfer = () => {
     return () => clearInterval(trailInterval);
   }, [stocks, surferPositions]);
   
-  useEffect(() => {
+  const unlockCharacters = () => {
   const newUnlocked = [...unlockedChars];
 
-  if (streak >= 5 && !newUnlocked.includes('gohan')) {
-    newUnlocked.push('gohan');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (score >= 1000 && !newUnlocked.includes('piccolo')) {
-    newUnlocked.push('piccolo');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) {
-    newUnlocked.push('trunks');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (streak >= 10 && !newUnlocked.includes('krillin')) {
-    newUnlocked.push('krillin');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
+  const unlockList = [
+    { condition: streak >= 5, char: 'gohan' },
+    { condition: streak >= 10, char: 'krillin' },
+    { condition: streak >= 12, char: 'wolf' },
+    { condition: streak >= 15, char: 'dolphin' },
+    { condition: score >= 1000, char: 'piccolo' },
+    { condition: score >= 2000, char: 'cat' },
+    { condition: powerUpCount >= 3, char: 'trunks' },
+    { condition: powerUpCount >= 5, char: 'unicorn' },
+  ];
 
-  // ⭐ NEW CHARACTERS ⭐
-  if (streak >= 20 && !newUnlocked.includes('dolphin')) {
-    newUnlocked.push('dolphin');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (score >= 5000 && !newUnlocked.includes('cat')) {
-    newUnlocked.push('cat');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) {
-    newUnlocked.push('unicorn');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (streak >= 15 && !newUnlocked.includes('wolf')) {
-    newUnlocked.push('wolf');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
+  unlockList.forEach(({ condition, char }) => {
+    if (condition && !newUnlocked.includes(char)) {
+      newUnlocked.push(char);
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
+  });
 
-  setUnlockedChars(newUnlocked);
-}, [streak, score, powerUpCount, unlockedChars]);
+  return newUnlocked;
+};
 
+
+useEffect(() => {
+  setUnlockedChars(unlockCharacters());
+}, [streak, score, powerUpCount]);
   
   useEffect(() => {
     const interval = setInterval(() => {
