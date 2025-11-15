@@ -454,7 +454,7 @@ const surferY = baseY + yOffset + jumpOffset - 15;
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+    const normalizePrice = (price) => height * 0.5; // Flat line for stable positioning
     const offset = time * 0.02;
     const points = [];
     for (let i = 0; i < 60; i++) {
