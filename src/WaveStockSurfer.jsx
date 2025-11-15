@@ -603,8 +603,8 @@ const WaveStockSurfer = () => {
 )}
 
 {celebration && (
-  <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-    <div className="text-8xl animate-bounce">🎉✨🏆✨🎉</div>
+  <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
+    <div className="text-8xl animate-bounce text-center">🎉✨🏆✨🎉</div>
   </div>
 )}
         
