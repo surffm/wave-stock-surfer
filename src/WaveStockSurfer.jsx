@@ -505,14 +505,15 @@ useEffect(() => {
     const prevPoint = points[Math.max(0, surferIndex - 1)];
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
-const baseWaveY = surferPoint.y;
-const yOffset = (surferPos.y - 0.5) * height * 0.4;
-const jumpOffset = surferPos.jumping ? -30 : 0;
-const finalY = baseWaveY + yOffset + jumpOffset - 15;
-
+    const baseWaveY = surferPoint.y;
+    const yOffset = (surferPos.y - 0.5) * height * 0.4;
+    const jumpOffset = surferPos.jumping ? -30 : 0;
+    const finalY = baseWaveY + yOffset + jumpOffset - 15;
+    
     ctx.save();
-    ctx.translate(surferPoint.x, finalY);
+    ctx.translate(surferPos.x * width, finalY);
     ctx.rotate(angle);
+
     const shouldFlip = char?.invertDirection ? (surferPos.direction === -1) : (surferPos.direction === 1);
     if (shouldFlip) ctx.scale(-1, 1);
     if (stock.symbol === selectedStock) { ctx.shadowBlur = 25; ctx.shadowColor = '#00FF00'; }
