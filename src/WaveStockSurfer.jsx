@@ -505,8 +505,26 @@ useEffect(() => {
     const prevPoint = points[Math.max(0, surferIndex - 1)];
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
+const baseWaveY = surferPoint.y;
+const yOffset = (surferPos.y - 0.5) * height * 0.4;
+const jumpOffset = surferPos.jumping ? -30 : 0;
+const finalY = baseWaveY + yOffset + jumpOffset - 15;
+
+const surferPos = surferPositions[stock.symbol];
+    if (!surferPos) return;
+    const surferIndex = Math.floor(surferPos.x * (points.length - 1));
+    const surferPoint = points[surferIndex];
+    const prevPoint = points[Math.max(0, surferIndex - 1)];
+    const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
+    const char = characters.find(c => c.id === selectedChars[stock.symbol]);
+    
+    const baseWaveY = surferPoint.y;
+    const yOffset = (surferPos.y - 0.5) * height * 0.4;
+    const jumpOffset = surferPos.jumping ? -30 : 0;
+    const finalY = baseWaveY + yOffset + jumpOffset - 15;
+    
     ctx.save();
-    ctx.translate(surferPoint.x, surferPoint.y - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8);
+    ctx.translate(surferPoint.x, finalY);
     ctx.rotate(angle);
     const shouldFlip = char?.invertDirection ? (surferPos.direction === -1) : (surferPos.direction === 1);
     if (shouldFlip) ctx.scale(-1, 1);
@@ -546,7 +564,7 @@ useEffect(() => {
     ctx.fillStyle = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
   }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
-  
+
   useEffect(() => {
     let animationFrame;
     const animate = () => {
