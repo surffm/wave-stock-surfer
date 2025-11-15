@@ -38,15 +38,19 @@ const WaveStockSurfer = () => {
     return history;
   }, []);
   
-  const initialStocks = useMemo(() => [
-  { 
-    symbol: 'GME', 
-    color: '#EC4899', 
-    history: (() => {
-      const raw = generatePriceHistory(25, 0.12, 500); // generate natural-looking wave
-      const scaleFactor = 500000 / raw[raw.length - 1]; // scale so last price is ~500,000
-      return raw.map(p => p * scaleFactor);
-    })(),
+  const initialStocks = {
+  GME: (() => {
+    const raw = generatePriceHistory(25, 0.12, 500); // base wave
+    const target = 500000;
+    const start = raw[0];
+    return raw.map((p, i) => {
+      const t = i / (raw.length - 1); // 0 -> 1
+      const scale = 1 + t * (target / start - 1); // gradually scale toward 500k
+      return p * scale;
+    });
+  })(),
+  // other stocks...
+};
     selectedChar: 'goku' 
   },
   { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
