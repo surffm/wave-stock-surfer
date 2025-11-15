@@ -883,16 +883,14 @@ const WaveStockSurfer = () => {
         </div>
         
         {/* Jump Button */}
-        <div className="pointer-events-auto touch-none">
+        <div className="pointer-events-auto">
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              e.stopPropagation();
               handleJump();
             }}
             onClick={handleJump}
-            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform touch-none select-none"
-            style={{ touchAction: 'none' }}
+            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform"
           >
             ⬆️
           </button>
