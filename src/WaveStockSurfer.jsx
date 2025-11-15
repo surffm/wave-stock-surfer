@@ -191,31 +191,12 @@ const WaveStockSurfer = () => {
         let newX = current.x;
         let newY = current.y;
         
-        // Smooth movement towards target position
-        const target = targetPositions[selectedStock];
-        if (target) {
-          const deltaX = target.x - current.x;
-          const deltaY = target.y - current.y;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-          
-          if (distance > 0.01) {
-            const speed = 0.08; // Adjust for smoother/faster movement
-            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
-            newY = current.y + (deltaY / distance) * Math.min(speed, distance);
-          } else {
-            // Close enough to target, clear it
-            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-          }
-        }
-        
-        // Keyboard controls (override target movement)
+        // Keyboard controls
         if (keysPressed.current['ArrowLeft']) {
           newX = Math.max(0.05, newX - 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowRight']) {
           newX = Math.min(0.95, newX + 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowUp']) {
           if (current.hasRocket) {
@@ -223,11 +204,9 @@ const WaveStockSurfer = () => {
           } else {
             newY = Math.max(0.5, newY - 0.02);
           }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowDown']) {
           newY = Math.min(1.2, newY + 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         
         return {
@@ -238,7 +217,7 @@ const WaveStockSurfer = () => {
     }, 30);
     
     return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions]);
+  }, [selectedStock]);
   
   useEffect(() => {
     const trailInterval = setInterval(() => {
