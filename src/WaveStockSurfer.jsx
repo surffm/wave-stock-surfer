@@ -698,7 +698,7 @@ const WaveStockSurfer = () => {
           </p>
         </div>
         
-       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -738,8 +738,8 @@ const WaveStockSurfer = () => {
               {isMobile ? (
                 <>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">👆 Touch Wave</span>
-                    <span>Surf where you tap! 💧</span>
+                    <span className="px-3 py-1 bg-white/20 rounded">👆 Touch & Hold</span>
+                    <span>Surf anywhere! 💧</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
                     <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
@@ -852,6 +852,7 @@ const WaveStockSurfer = () => {
                   className="w-full h-48 mb-3 rounded-lg cursor-pointer"
                   onTouchStart={(e) => handleCanvasTouch(e, stock.symbol)}
                   onTouchMove={(e) => handleCanvasTouch(e, stock.symbol)}
+                  onTouchEnd={handleCanvasTouchEnd}
                   onClick={(e) => handleCanvasTouch(e, stock.symbol)}
                   style={{ touchAction: 'none' }}
                 />
