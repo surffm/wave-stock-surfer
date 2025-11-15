@@ -94,6 +94,7 @@ const WaveStockSurfer = () => {
   );
   
   const canvasRefs = useRef({});
+  const cardRefs = useRef({});
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   
@@ -168,7 +169,8 @@ const WaveStockSurfer = () => {
     const y = clientY - canvasRect.top;
     
     const normalizedX = Math.max(0.05, Math.min(0.95, x / canvasRect.width));
-    const normalizedY = Math.max(0.3, Math.min(1.0, y / canvasRect.height));
+    // Expanded Y range to allow going lower on the wave
+    const normalizedY = Math.max(0.1, Math.min(1.5, y / canvasRect.height));
     
     setTargetPositions(prev => ({
       ...prev,
@@ -839,11 +841,16 @@ const WaveStockSurfer = () => {
             
             return (
               <div 
-                key={stock.symbol} 
+                key={stock.symbol}
+                ref={el => cardRefs.current[stock.symbol] = el}
                 onClick={() => setSelectedStock(stock.symbol)}
+                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
+                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
+                onTouchEnd={handleCanvasTouchEnd}
                 className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative ${
                   isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
                 }`}
+                style={{ touchAction: 'none' }}
               >
                 <button
                   onClick={(e) => {
@@ -877,11 +884,7 @@ const WaveStockSurfer = () => {
                   ref={el => canvasRefs.current[stock.symbol] = el}
                   width={600}
                   height={200}
-                  className="w-full h-48 mb-3 rounded-lg cursor-pointer"
-                  onTouchStart={(e) => handleCanvasTouch(e, stock.symbol)}
-                  onTouchMove={(e) => handleCanvasTouch(e, stock.symbol)}
-                  onTouchEnd={handleCanvasTouchEnd}
-                  onClick={(e) => handleCanvasTouch(e, stock.symbol)}
+                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none"
                   style={{ touchAction: 'none' }}
                 />
                 
