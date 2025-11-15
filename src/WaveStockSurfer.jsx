@@ -602,11 +602,11 @@ const WaveStockSurfer = () => {
           </div>
         )}
         
-        {celebration && (
-          <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-            <div className="text-8xl animate-bounce">🎉✨🏆✨🎉</div>
-          </div>
-        )}
+        celebration && (
+  <div className="fixed top-0 left-0 w-screen h-screen z-50 pointer-events-none flex items-center justify-center">
+    <div className="text-8xl animate-bounce">🎉✨🏆✨🎉</div>
+  </div>
+)}
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {stocks.map((stock) => {
