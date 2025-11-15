@@ -21,10 +21,10 @@ const WaveStockSurfer = () => {
   { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' },
 
   // ⭐ NEW CHARACTERS ⭐
-  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF' },
-  { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0' },
-  { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF' },
-  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E' }
+  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 7 streak', color: '#3BA3FF' },
+  { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Reach 8 streak', color: '#F6A5C0' },
+  { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Reach 9 streak', color: '#D98FFF' },
+  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Reach 10 streak', color: '#6E8B8E' }
 ], []);
 
   
