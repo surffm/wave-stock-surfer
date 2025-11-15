@@ -525,54 +525,57 @@ const WaveStockSurfer = () => {
       });
     }, 50);
     
-    useEffect(() => {
-  const newUnlocked = [...unlockedChars];
+    return () => clearInterval(trailInterval);
+  }, [stocks, surferPositions]);
+  
+  useEffect(() => {
+    const newUnlocked = [...unlockedChars];
 
-  if (streak >= 5 && !newUnlocked.includes('gohan')) {
-    newUnlocked.push('gohan');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (score >= 1000 && !newUnlocked.includes('piccolo')) {
-    newUnlocked.push('piccolo');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) {
-    newUnlocked.push('trunks');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (streak >= 10 && !newUnlocked.includes('krillin')) {
-    newUnlocked.push('krillin');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
+    if (streak >= 5 && !newUnlocked.includes('gohan')) {
+      newUnlocked.push('gohan');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
+    if (score >= 1000 && !newUnlocked.includes('piccolo')) {
+      newUnlocked.push('piccolo');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
+    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) {
+      newUnlocked.push('trunks');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
+    if (streak >= 10 && !newUnlocked.includes('krillin')) {
+      newUnlocked.push('krillin');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
 
-  // ⭐ NEW CHARACTERS ⭐
-  if (streak >= 20 && !newUnlocked.includes('dolphin')) {
-    newUnlocked.push('dolphin');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (score >= 5000 && !newUnlocked.includes('cat')) {
-    newUnlocked.push('cat');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) {
-    newUnlocked.push('unicorn');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
-  if (streak >= 15 && !newUnlocked.includes('wolf')) {
-    newUnlocked.push('wolf');
-    setCelebration(true);
-    setTimeout(() => setCelebration(false), 2000);
-  }
+    // ⭐ NEW CHARACTERS ⭐
+    if (streak >= 20 && !newUnlocked.includes('dolphin')) {
+      newUnlocked.push('dolphin');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
+    if (score >= 5000 && !newUnlocked.includes('cat')) {
+      newUnlocked.push('cat');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
+    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) {
+      newUnlocked.push('unicorn');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
+    if (streak >= 15 && !newUnlocked.includes('wolf')) {
+      newUnlocked.push('wolf');
+      setCelebration(true);
+      setTimeout(() => setCelebration(false), 2000);
+    }
 
-  setUnlockedChars(newUnlocked);
-}, [streak, score, powerUpCount, unlockedChars]);
+    setUnlockedChars(newUnlocked);
+  }, [streak, score, powerUpCount, unlockedChars]);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -687,6 +690,10 @@ const WaveStockSurfer = () => {
       });
       ctx.strokeStyle = stock.color + Math.floor((opacity + 0.3) * 255).toString(16).padStart(2, '0');
       ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    
+    ctx.lineWidth = 3;
       ctx.stroke();
     }
     
