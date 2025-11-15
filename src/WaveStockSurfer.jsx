@@ -465,7 +465,7 @@ const surferY = baseY + yOffset + jumpOffset - 15;
       const nextIndex = Math.min(index + 1, history.length - 1);
       const t = historyIndex - index;
       const price = history[index] * (1 - t) + history[nextIndex] * t;
-      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
+      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 20 + Math.sin(x * 0.3 + time * 0.5) * 5;
       points.push({ x, y });
     }
     let crestIndex = 0;
