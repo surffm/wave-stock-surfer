@@ -18,7 +18,11 @@ const WaveStockSurfer = () => {
     { id: 'gohan', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D' },
     { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3' },
     { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181' },
-    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' }
+    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' },
+    { id: 'dolphin', name: 'Aqua Flipper', emoji: '🐬', unlocked: false, unlock: 'Score 2000+', color: '#38BDF8' },
+    { id: 'cat', name: 'Purr Surfer', emoji: '🐱', unlocked: false, unlock: 'Reach 15 streak', color: '#FB923C' },
+    { id: 'unicorn', name: 'Magic Rider', emoji: '🦄', unlocked: false, unlock: 'Score 3000+', color: '#D946EF' },
+    { id: 'wolf', name: 'Wild Howler', emoji: '🐺', unlocked: false, unlock: 'Reach 20 streak', color: '#6366F1' }
   ], []);
   
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
