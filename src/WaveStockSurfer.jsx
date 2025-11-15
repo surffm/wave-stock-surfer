@@ -589,20 +589,20 @@ const WaveStockSurfer = () => {
           </button>
         </div>
         
-        {showMission && (
-          <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
-            <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
-              🌊 Our Mission 🏄‍♂️
-            </h2>
-            <div className="space-y-3 text-base">
-              <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
-              <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-              <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-            </div>
-          </div>
-        )}
-        
-        celebration && (
+       {showMission && (
+  <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
+    <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
+      🌊 Our Mission 🏄‍♂️
+    </h2>
+    <div className="space-y-3 text-base">
+      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
+      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+    </div>
+  </div>
+)}
+
+{celebration && (
   <div className="fixed top-0 left-0 w-screen h-screen z-50 pointer-events-none flex items-center justify-center">
     <div className="text-8xl animate-bounce">🎉✨🏆✨🎉</div>
   </div>
