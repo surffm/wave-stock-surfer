@@ -297,7 +297,7 @@ const WaveStockSurfer = () => {
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+    const normalizePrice = (price) => height * 0.5 + ((price - minPrice) / priceRange) * height * 0.1; // Very gentle slope
     const historyIndex = x * (history.length - 1);
     const index = Math.floor(historyIndex);
     const nextIndex = Math.min(index + 1, history.length - 1);
