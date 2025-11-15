@@ -399,13 +399,27 @@ const WaveStockSurfer = () => {
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
 // Draw rockets (power-ups)
 Object.keys(rockets).forEach(symbol => {
-  (rockets[symbol] || []).forEach(p => {
-    ctx.fillStyle = 'red'; // rocket color
+  (rockets[symbol] || []).forEach((p, index) => {
+    // Ensure coordinates exist
+    if (typeof p.x !== 'number' || typeof p.y !== 'number') {
+      console.warn(`Rocket ${symbol}[${index}] has invalid coordinates`, p);
+      return;
+    }
+
+    // Draw rocket as a red circle
+    ctx.fillStyle = 'red';
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); // circle as rocket
+    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Optional: small white highlight for 3D effect
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(p.x - 3, p.y - 3, 3, 0, Math.PI * 2);
     ctx.fill();
   });
 });
+
 
   }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
   
