@@ -75,7 +75,7 @@ const WaveStockSurfer = () => {
   const [surferPositions, setSurferPositions] = useState(
     stocks.reduce((acc, stock) => ({
       ...acc,
-      [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false }
+      [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 }
     }), {})
   );
   
@@ -277,8 +277,9 @@ const WaveStockSurfer = () => {
           const deltaY = target.y - current.y;
           const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
           
-          if (distance > 0.01) {
-            const speed = 0.04;
+          if (distance > 0.005) {
+            // Increased speed for smoother, more responsive movement
+            const speed = 0.08;
             newX = current.x + (deltaX / distance) * Math.min(speed, distance);
             let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
             
@@ -315,8 +316,10 @@ const WaveStockSurfer = () => {
             
             newY = targetY;
           } else {
-            // Close enough to target, clear it
-            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+            // Close enough to target, clear it only if not actively touching
+            if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
+              setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+            }
           }
         }
         
@@ -338,7 +341,7 @@ const WaveStockSurfer = () => {
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowDown']) {
-          newY = Math.min(1.2, newY + 0.02);
+          newY = Math.min(1.5, newY + 0.02);
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         
@@ -347,7 +350,7 @@ const WaveStockSurfer = () => {
           [selectedStock]: { ...current, x: newX, y: newY }
         };
       });
-    }, 30);
+    }, 16);
     
     return () => clearInterval(moveInterval);
   }, [selectedStock, targetPositions, stocks]);
