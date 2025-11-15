@@ -97,6 +97,7 @@ const WaveStockSurfer = () => {
   const cardRefs = useRef({});
   const timeRef = useRef(0);
   const keysPressed = useRef({});
+  const previousX = useRef({});
   
   // Detect mobile
   useEffect(() => {
@@ -232,6 +233,7 @@ const WaveStockSurfer = () => {
         const current = prev[selectedStock];
         let newX = current.x;
         let newY = current.y;
+        let newDirection = current.direction;
         
         // Get wave height at current X position to clamp surfer
         const stock = stocks.find(s => s.symbol === selectedStock);
@@ -280,7 +282,16 @@ const WaveStockSurfer = () => {
           if (distance > 0.005) {
             // Increased speed for smoother, more responsive movement
             const speed = 0.08;
+            const prevX = newX;
             newX = current.x + (deltaX / distance) * Math.min(speed, distance);
+            
+            // Update direction based on movement
+            if (newX > prevX) {
+              newDirection = 1; // Moving right
+            } else if (newX < prevX) {
+              newDirection = -1; // Moving left
+            }
+            
             let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
             
             // Apply wave clamping to target Y as well (if not jumping)
@@ -326,10 +337,12 @@ const WaveStockSurfer = () => {
         // Keyboard controls (override target movement)
         if (keysPressed.current['ArrowLeft']) {
           newX = Math.max(0.05, newX - 0.02);
+          newDirection = -1;
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowRight']) {
           newX = Math.min(0.95, newX + 0.02);
+          newDirection = 1;
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowUp']) {
@@ -347,7 +360,7 @@ const WaveStockSurfer = () => {
         
         return {
           ...prev,
-          [selectedStock]: { ...current, x: newX, y: newY }
+          [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection }
         };
       });
     }, 16);
@@ -584,6 +597,11 @@ const WaveStockSurfer = () => {
     ctx.translate(surferPoint.x, surferPoint.y - 15 + jumpOffset + verticalOffset);
     ctx.rotate(angle);
     
+    // Flip horizontally based on direction
+    if (surferPos.direction === -1) {
+      ctx.scale(-1, 1);
+    }
+    
     if (stock.symbol === selectedStock) {
       ctx.shadowBlur = 25;
       ctx.shadowColor = '#00FF00';
@@ -676,7 +694,7 @@ const WaveStockSurfer = () => {
       setSelectedChars(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: 'goku' }));
       setSurferPositions(prev => ({ 
         ...prev, 
-        [newStock.symbol.toUpperCase()]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false }
+        [newStock.symbol.toUpperCase()]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 }
       }));
       setRockets(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setWaterTrails(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
