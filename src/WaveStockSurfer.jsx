@@ -15,6 +15,18 @@ const WaveStockSurfer = () => {
   const [touchControls, setTouchControls] = useState({ x: 0, y: 0, active: false });
   const touchStartPos = useRef({ x: 0, y: 0 });
   
+  // Prevent page scrolling on mobile
+  useEffect(() => {
+    const preventDefault = (e) => {
+      if (e.target.closest('.mobile-controls')) {
+        e.preventDefault();
+      }
+    };
+    
+    document.addEventListener('touchmove', preventDefault, { passive: false });
+    return () => document.removeEventListener('touchmove', preventDefault);
+  }, []);
+  
   const characters = useMemo(() => [
     { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35' },
     { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4' },
@@ -592,7 +604,7 @@ const WaveStockSurfer = () => {
   }, [selectedStock, stocks]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32 touch-none">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
