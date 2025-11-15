@@ -150,6 +150,34 @@ const WaveStockSurfer = () => {
     touchingRef.current = false;
     currentTouchStock.current = null;
   }, []);
+
+  // Handle touch anywhere in the stock card
+  const handleStockCardTouch = useCallback((e, stockSymbol, cardRef) => {
+    if (stockSymbol !== selectedStock) return;
+    
+    e.preventDefault();
+    const canvas = canvasRefs.current[stockSymbol];
+    const card = cardRef;
+    if (!canvas || !card) return;
+    
+    const canvasRect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const x = clientX - canvasRect.left;
+    const y = clientY - canvasRect.top;
+    
+    const normalizedX = Math.max(0.05, Math.min(0.95, x / canvasRect.width));
+    const normalizedY = Math.max(0.3, Math.min(1.0, y / canvasRect.height));
+    
+    setTargetPositions(prev => ({
+      ...prev,
+      [stockSymbol]: { x: normalizedX, y: normalizedY }
+    }));
+    
+    touchingRef.current = true;
+    currentTouchStock.current = stockSymbol;
+  }, [selectedStock]);
   
   // Jump button handler
   const handleJump = () => {
