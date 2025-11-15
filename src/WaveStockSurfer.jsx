@@ -13,18 +13,18 @@ const WaveStockSurfer = () => {
   const [isMobile, setIsMobile] = useState(false);
   
   const characters = useMemo(() => [
-  { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35' },
-  { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4' },
-  { id: 'gohan', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D' },
-  { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3' },
-  { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181' },
-  { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA' },
+  { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
+  { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4', invertDirection: false },
+  { id: 'gohan', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D', invertDirection: false },
+  { id: 'piccolo', name: 'Foam Ninja', emoji: '🦸‍♂️', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: false },
+  { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: false },
+  { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
 
   // ⭐ NEW CHARACTERS ⭐
-  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF' },
-  { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0' },
-  { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF' },
-  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E' }
+  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
+  { id: 'cat', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
+  { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
+  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
 ], []);
 
   
@@ -717,10 +717,9 @@ const WaveStockSurfer = () => {
     ctx.rotate(angle);
     
     // Flip horizontally based on direction (inverted logic)
-    const flipChars = ['goku', 'vegeta', 'gohan', 'piccolo', 'trunks']; // specify which characters to flip
-if (flipChars.includes(char.id) && surferPos.direction === 1) {
-  ctx.scale(-1, 1);
-}
+    if (surferPos.direction === 1) {
+      ctx.scale(-1, 1);
+    }
     
     if (stock.symbol === selectedStock) {
       ctx.shadowBlur = 25;
