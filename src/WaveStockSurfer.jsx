@@ -10,7 +10,31 @@ const WaveStockSurfer = () => {
   const [celebration, setCelebration] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
-  const [isMobile, setIsMobile] = useState(false);
+  
+  // Mobile controls state
+  const [touchControls, setTouchControls] = useState({ x: 0, y: 0, active: false });
+  const touchStartPos = useRef({ x: 0, y: 0 });
+  const joystickRef = useRef(null);
+  
+  // Prevent scrolling when touching the joystick
+  useEffect(() => {
+    const preventScroll = (e) => {
+      if (joystickRef.current && joystickRef.current.contains(e.target)) {
+        e.preventDefault();
+        return false;
+      }
+    };
+    
+    document.addEventListener('touchstart', preventScroll, { passive: false });
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+    document.addEventListener('touchend', preventScroll, { passive: false });
+    
+    return () => {
+      document.removeEventListener('touchstart', preventScroll);
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('touchend', preventScroll);
+    };
+  }, []);
   
   const characters = useMemo(() => [
     { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35' },
@@ -97,79 +121,51 @@ const WaveStockSurfer = () => {
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   
-  // Detect mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-  
-  // Target position for smooth movement
-  const [targetPositions, setTargetPositions] = useState(
-    stocks.reduce((acc, stock) => ({
-      ...acc,
-      [stock.symbol]: null
-    }), {})
-  );
-  
-  // Track if user is holding touch
-  const [isTouching, setIsTouching] = useState(false);
-  
-  // Track touch start position for relative movement
-  const touchStartPositions = useRef({});
-  
-  // Handle canvas touch/click for mobile - relative dragging
-  const handleCanvasTouch = useCallback((e, stockSymbol) => {
-    if (stockSymbol !== selectedStock) return;
-    
+  // Touch handlers for joystick
+  const handleTouchStart = (e) => {
     e.preventDefault();
-    const canvas = canvasRefs.current[stockSymbol];
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    // If this is a new touch, store the starting position
-    if (!touchStartPositions.current[stockSymbol]) {
-      touchStartPositions.current[stockSymbol] = {
-        x: clientX,
-        y: clientY,
-        startSurferX: surferPositions[stockSymbol].x,
-        startSurferY: surferPositions[stockSymbol].y
-      };
-      return;
-    }
-    
-    // Calculate relative movement from touch start
-    const touchStart = touchStartPositions.current[stockSymbol];
-    const deltaX = (clientX - touchStart.x) / rect.width;
-    const deltaY = (clientY - touchStart.y) / rect.height;
-    
-    // Apply relative movement to surfer position
-    const newX = Math.max(0.05, Math.min(0.95, touchStart.startSurferX + deltaX));
-    const newY = Math.max(0.3, Math.min(1.0, touchStart.startSurferY + deltaY));
-    
-    setSurferPositions(prev => ({
-      ...prev,
-      [stockSymbol]: {
-        ...prev[stockSymbol],
-        x: newX,
-        y: newY
-      }
-    }));
-  }, [selectedStock, surferPositions]);
+    e.stopPropagation();
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    touchStartPos.current = {
+      x: touch.clientX - rect.left - rect.width / 2,
+      y: touch.clientY - rect.top - rect.height / 2
+    };
+    setTouchControls({ x: 0, y: 0, active: true });
+  };
   
-  const handleCanvasTouchEnd = useCallback((stockSymbol) => {
-    setIsTouching(false);
-    // Clear the touch start position for this stock
-    if (touchStartPositions.current[stockSymbol]) {
-      delete touchStartPositions.current[stockSymbol];
+  const handleTouchMove = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!touchControls.active) return;
+    
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    let deltaX = touch.clientX - centerX;
+    let deltaY = touch.clientY - centerY;
+    
+    const maxDistance = 40;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    if (distance > maxDistance) {
+      deltaX = (deltaX / distance) * maxDistance;
+      deltaY = (deltaY / distance) * maxDistance;
     }
-  }, []);
+    
+    setTouchControls({
+      x: deltaX / maxDistance,
+      y: deltaY / maxDistance,
+      active: true
+    });
+  };
+  
+  const handleTouchEnd = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTouchControls({ x: 0, y: 0, active: false });
+  };
   
   // Jump button handler
   const handleJump = () => {
@@ -223,28 +219,12 @@ const WaveStockSurfer = () => {
         let newX = current.x;
         let newY = current.y;
         
-        // Smooth movement towards target position (only if holding touch)
-        const target = targetPositions[selectedStock];
-        if (target && isTouching) {
-          const deltaX = target.x - current.x;
-          const deltaY = target.y - current.y;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-          
-          if (distance > 0.01) {
-            const speed = 0.04; // Adjust for smoother/faster movement
-            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
-            newY = current.y + (deltaY / distance) * Math.min(speed, distance);
-          }
-        }
-        
-        // Keyboard controls (override target movement)
+        // Keyboard controls
         if (keysPressed.current['ArrowLeft']) {
           newX = Math.max(0.05, newX - 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowRight']) {
           newX = Math.min(0.95, newX + 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowUp']) {
           if (current.hasRocket) {
@@ -252,11 +232,19 @@ const WaveStockSurfer = () => {
           } else {
             newY = Math.max(0.5, newY - 0.02);
           }
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowDown']) {
           newY = Math.min(1.2, newY + 0.02);
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        
+        // Touch controls
+        if (touchControls.active) {
+          newX = Math.max(0.05, Math.min(0.95, newX + touchControls.x * 0.02));
+          if (current.hasRocket) {
+            newY = Math.max(-0.2, Math.min(1.2, newY + touchControls.y * 0.02));
+          } else {
+            newY = Math.max(0.5, Math.min(1.2, newY + touchControls.y * 0.02));
+          }
         }
         
         return {
@@ -267,7 +255,7 @@ const WaveStockSurfer = () => {
     }, 30);
     
     return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, isTouching]);
+  }, [selectedStock, touchControls]);
   
   useEffect(() => {
     const trailInterval = setInterval(() => {
@@ -634,9 +622,7 @@ const WaveStockSurfer = () => {
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
             🏄‍♂️ Wave Stock Surfer 🌊
           </h1>
-          <p className="text-blue-200 text-lg">
-            {isMobile ? 'Hold & drag on wave to surf! Release to glide! Tap jump to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
-          </p>
+          <p className="text-blue-200 text-lg">Ride the waves of the market - Use controls to carve, jump button to jump!</p>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -676,39 +662,21 @@ const WaveStockSurfer = () => {
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
             <h2 className="text-xl font-bold text-white mb-3">Controls</h2>
             <div className="space-y-3">
-              {isMobile ? (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">👆 Hold & Drag</span>
-                    <span>Surf where you touch! 💧</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">🤚 Release</span>
-                    <span>Glide freely!</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
-                    <span>Jump!</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-2 py-1 bg-white/20 rounded">←</kbd>
-                    <kbd className="px-2 py-1 bg-white/20 rounded">→</kbd>
-                    <span>Move & See Water Spray! 💧</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-2 py-1 bg-white/20 rounded">↑</kbd>
-                    <kbd className="px-2 py-1 bg-white/20 rounded">↓</kbd>
-                    <span>Carve Up/Down Wave</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-3 py-1 bg-white/20 rounded">SPACE</kbd>
-                    <span>Jump!</span>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center gap-2 text-sm text-blue-200">
+                <span className="px-2 py-1 bg-white/20 rounded">🕹️ Joystick</span>
+                <span>Move & See Water Spray! 💧</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-blue-200">
+                <span className="px-2 py-1 bg-white/20 rounded">⬆️ Button</span>
+                <span>Jump!</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-blue-200">
+                <kbd className="px-2 py-1 bg-white/20 rounded">←</kbd>
+                <kbd className="px-2 py-1 bg-white/20 rounded">→</kbd>
+                <kbd className="px-2 py-1 bg-white/20 rounded">↑</kbd>
+                <kbd className="px-2 py-1 bg-white/20 rounded">↓</kbd>
+                <span>Keyboard works too!</span>
+              </div>
               <div className="flex items-center gap-2 text-sm text-blue-200">
                 <span className="text-green-400 font-bold">● {selectedStock}</span>
                 <span>← Selected (click wave)</span>
@@ -794,15 +762,7 @@ const WaveStockSurfer = () => {
                   ref={el => canvasRefs.current[stock.symbol] = el}
                   width={600}
                   height={200}
-                  className="w-full h-48 mb-3 rounded-lg cursor-pointer"
-                  onTouchStart={(e) => {
-                    setIsTouching(true);
-                    handleCanvasTouch(e, stock.symbol);
-                  }}
-                  onTouchMove={(e) => handleCanvasTouch(e, stock.symbol)}
-                  onTouchEnd={handleCanvasTouchEnd}
-                  onClick={(e) => handleCanvasTouch(e, stock.symbol)}
-                  style={{ touchAction: 'none' }}
+                  className="w-full h-48 mb-3 rounded-lg"
                 />
                 
                 <div className="border-t border-white/20 pt-3">
@@ -916,9 +876,35 @@ const WaveStockSurfer = () => {
         </div>
       </div>
       
-      {/* Mobile Jump Button */}
-      {isMobile && (
-        <div className="fixed bottom-6 right-6 z-50">
+      {/* Mobile Touch Controls */}
+      <div className="mobile-controls fixed bottom-6 left-6 right-6 flex justify-between items-end pointer-events-none z-50">
+        {/* Joystick */}
+        <div className="pointer-events-auto touch-none">
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="relative w-32 h-32 bg-white/10 backdrop-blur-md rounded-full border-4 border-white/30 shadow-2xl touch-none select-none"
+            style={{ touchAction: 'none' }}
+          >
+            <div className="absolute inset-0 flex items-center justify-center text-white/50 text-xs font-bold">
+              🕹️
+            </div>
+            {touchControls.active && (
+              <div
+                className="absolute w-12 h-12 bg-blue-500 rounded-full shadow-lg transition-transform"
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(-50%, -50%) translate(${touchControls.x * 40}px, ${touchControls.y * 40}px)`
+                }}
+              />
+            )}
+          </div>
+        </div>
+        
+        {/* Jump Button */}
+        <div className="pointer-events-auto touch-none">
           <button
             onTouchStart={(e) => {
               e.preventDefault();
@@ -926,13 +912,13 @@ const WaveStockSurfer = () => {
               handleJump();
             }}
             onClick={handleJump}
-            className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform"
+            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform touch-none select-none"
             style={{ touchAction: 'none' }}
           >
             ⬆️
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };
