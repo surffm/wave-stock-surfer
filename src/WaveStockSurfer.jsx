@@ -54,15 +54,24 @@ const WaveStockSurfer = () => {
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
   const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
-  const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 } }), {}));
-  const [rockets, setRockets] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
-  const [waterTrails, setWaterTrails] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
-  const [cutbackSplashes, setCutbackSplashes] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [surferPositions, setSurferPositions] = useState(
+    initialStocks.reduce((acc, stock) => ({ 
+      ...acc, 
+      [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 } 
+    }), {})
+  );
+  const [rockets, setRockets] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [waterTrails, setWaterTrails] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [cutbackSplashes, setCutbackSplashes] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [targetPositions, setTargetPositions] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
+  
   const canvasRefs = useRef({});
   const cardRefs = useRef({});
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   const previousX = useRef({});
+  const touchingRef = useRef(false);
+  const currentTouchStock = useRef(null);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -70,10 +79,6 @@ const WaveStockSurfer = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
-  const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
-  const touchingRef = useRef(false);
-  const currentTouchStock = useRef(null);
   
   const fetchAllStockData = useCallback(async (forceRefresh = false) => {
     setIsRefreshing(true);
@@ -95,12 +100,14 @@ const WaveStockSurfer = () => {
       }
       
       try {
+        console.log(`Fetching ${stock.symbol} from Finnhub...`);
         const finnhubResponse = await fetch(
           `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=${FINNHUB_API_KEY}`
         );
         
         if (finnhubResponse.ok) {
           const data = await finnhubResponse.json();
+          console.log(`${stock.symbol} Finnhub data:`, data);
           
           if (data.c && data.c > 0) {
             newRealTimeData[stock.symbol] = {
@@ -116,18 +123,21 @@ const WaveStockSurfer = () => {
             };
             lastFetchTime.current[stock.symbol] = Date.now();
             delete newApiErrors[stock.symbol];
+            console.log(`${stock.symbol} successfully fetched from Finnhub`);
             continue;
           }
         }
         
         await new Promise(resolve => setTimeout(resolve, 500));
         
+        console.log(`Trying Alpha Vantage for ${stock.symbol}...`);
         const alphaResponse = await fetch(
           `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=${ALPHA_VANTAGE_KEY}`
         );
         
         if (alphaResponse.ok) {
           const alphaData = await alphaResponse.json();
+          console.log(`${stock.symbol} Alpha Vantage data:`, alphaData);
           const quote = alphaData['Global Quote'];
           
           if (quote && quote['05. price']) {
@@ -144,6 +154,7 @@ const WaveStockSurfer = () => {
             };
             lastFetchTime.current[stock.symbol] = Date.now();
             delete newApiErrors[stock.symbol];
+            console.log(`${stock.symbol} successfully fetched from Alpha Vantage`);
             continue;
           }
         }
@@ -162,13 +173,14 @@ const WaveStockSurfer = () => {
           low: basePrice * 0.95,
           previousClose: basePrice * 0.99,
           changePercent: (Math.random() * 10 - 5).toFixed(2),
-          source: 'Generated',
+          source: 'Generated (API Error)',
           timestamp: new Date(),
           isLive: false
         };
       }
     }
     
+    console.log('Final real-time data:', newRealTimeData);
     setRealTimeData(newRealTimeData);
     setApiErrors(newApiErrors);
     setIsRefreshing(false);
@@ -186,6 +198,7 @@ const WaveStockSurfer = () => {
   }, [fetchAllStockData]);
   
   useEffect(() => {
+    console.log('Updating stock histories with real-time data...');
     setStocks(prevStocks => {
       return prevStocks.map(stock => {
         const rtData = realTimeData[stock.symbol];
@@ -219,6 +232,8 @@ const WaveStockSurfer = () => {
         }
         
         history.push(currentPrice);
+        
+        console.log(`${stock.symbol} history generated:`, { open, currentPrice, historyLength: history.length });
         
         return {
           ...stock,
@@ -275,7 +290,7 @@ const WaveStockSurfer = () => {
     const canvas = canvasRefs.current[stockSymbol];
     if (!canvas) return;
     const stock = stocks.find(s => s.symbol === stockSymbol);
-    if (!stock) return;
+    if (!stock || stock.history.length === 0) return;
     const width = canvas.width;
     const height = canvas.height;
     const history = stock.history;
@@ -297,7 +312,7 @@ const WaveStockSurfer = () => {
       const speed = Math.random() * 8 + 6;
       particles.push({ id: Date.now() + Math.random(), x: splashX, y: splashY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 3, life: 1, size: Math.random() * 5 + 3 });
     }
-    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...prev[stockSymbol], ...particles] }));
+    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...(prev[stockSymbol] || []), ...particles] }));
   }, [stocks]);
   
   useEffect(() => {
@@ -305,12 +320,13 @@ const WaveStockSurfer = () => {
       if (!selectedStock) return;
       setSurferPositions(prev => {
         const current = prev[selectedStock];
+        if (!current) return prev;
         let newX = current.x;
         let newY = current.y;
         let newDirection = current.direction;
         if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
         const stock = stocks.find(s => s.symbol === selectedStock);
-        if (stock && !current.jumping) {
+        if (stock && stock.history.length > 0 && !current.jumping) {
           const canvas = canvasRefs.current[selectedStock];
           if (canvas) {
             const height = canvas.height;
@@ -341,7 +357,7 @@ const WaveStockSurfer = () => {
             if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
             else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
             let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
-            if (!current.jumping && stock) {
+            if (!current.jumping && stock && stock.history.length > 0) {
               const canvas = canvasRefs.current[selectedStock];
               if (canvas) {
                 const height = canvas.height;
@@ -393,11 +409,10 @@ const WaveStockSurfer = () => {
       stocks.forEach(stock => {
         const surferPos = surferPositions[stock.symbol];
         const canvas = canvasRefs.current[stock.symbol];
-        if (!canvas || !surferPos) return;
+        if (!canvas || !surferPos || stock.history.length === 0) return;
         const width = canvas.width;
         const height = canvas.height;
         const history = stock.history;
-        if (history.length === 0) return;
         const minPrice = Math.min(...history);
         const maxPrice = Math.max(...history);
         const priceRange = maxPrice - minPrice || 1;
@@ -413,7 +428,7 @@ const WaveStockSurfer = () => {
         for (let i = 0; i < 2; i++) {
           const spreadAngle = (Math.random() - 0.5) * Math.PI / 3;
           const speed = Math.random() * 3 + 2;
-          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...prev[stock.symbol], {
+          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...(prev[stock.symbol] || []), {
             id: Date.now() + Math.random(), x: surferX, y: surferY,
             vx: Math.cos(Math.PI + spreadAngle) * speed, vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
             life: 1, size: Math.random() * 3 + 2
@@ -513,6 +528,7 @@ const WaveStockSurfer = () => {
       }
     }
     const surferPos = surferPositions[stock.symbol];
+    if (!surferPos) return;
     const surferIndex = Math.floor(surferPos.x * (points.length - 1));
     const surferPoint = points[surferIndex];
     const prevPoint = points[Math.max(0, surferIndex - 1)];
@@ -554,8 +570,8 @@ const WaveStockSurfer = () => {
     const startPrice = history[0];
     const endPrice = history[history.length - 1];
     const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
-    ctx.fillText(`Start: ${startPrice.toFixed(2)}`, 10, 20);
-    ctx.fillText(`Now: ${endPrice.toFixed(2)}`, width - 120, 20);
+    ctx.fillText(`Start: $${startPrice.toFixed(2)}`, 10, 20);
+    ctx.fillText(`Now: $${endPrice.toFixed(2)}`, width - 120, 20);
     ctx.fillStyle = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
   }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
@@ -679,440 +695,3 @@ const WaveStockSurfer = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-6">
-          <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            Stock Surfer 🌊
-          </h1>
-          <p className="text-blue-200 text-lg">
-            {isMobile ? 'Touch & hold the wave to surf! Tap jump button to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
-          </p>
-        </div>
-      
-      {isMobile && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleJump();
-            }}
-            onClick={handleJump}
-            className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform"
-            style={{ touchAction: 'none' }}
-          >
-            ⬆️
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default WaveStockSurfer;  
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-blue-200 font-medium">Score</span>
-                <span className="text-2xl font-bold text-blue-400">{score.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-blue-200 font-medium flex items-center gap-1">
-                  <TrendingUp size={16} />
-                  Streak
-                </span>
-                <span className="text-xl font-bold text-orange-400">{streak}🔥</span>
-              </div>
-              {multiplier > 1 && (
-                <div className="flex items-center justify-between animate-pulse">
-                  <span className="text-blue-200 font-medium flex items-center gap-1">
-                    <Sparkles size={16} />
-                    Multiplier
-                  </span>
-                  <span className="text-xl font-bold text-purple-400">×{multiplier}</span>
-                </div>
-              )}
-              {powerUp && (
-                <div className="bg-yellow-400/20 border-2 border-yellow-400 rounded-lg p-2 animate-pulse">
-                  <div className="flex items-center gap-2 text-yellow-300 font-bold text-sm">
-                    <Zap size={16} />
-                    {powerUp.toUpperCase()} BOOST!
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-            <h2 className="text-xl font-bold text-white mb-3">Controls</h2>
-            <div className="space-y-3">
-              {isMobile ? (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">👆 Touch & Hold</span>
-                    <span>Surf anywhere! 💧</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
-                    <span>Jump!</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-2 py-1 bg-white/20 rounded">←</kbd>
-                    <kbd className="px-2 py-1 bg-white/20 rounded">→</kbd>
-                    <span>Move & See Water Spray! 💧</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-2 py-1 bg-white/20 rounded">↑</kbd>
-                    <kbd className="px-2 py-1 bg-white/20 rounded">↓</kbd>
-                    <span>Carve Up/Down Wave</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-3 py-1 bg-white/20 rounded">SPACE</kbd>
-                    <span>Jump!</span>
-                  </div>
-                </>
-              )}
-              <div className="flex items-center gap-2 text-sm text-blue-200">
-                <span className="text-green-400 font-bold">● {selectedStock}</span>
-                <span>← Selected (click wave)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="text-center mb-6">
-          <button
-            onClick={() => setShowMission(!showMission)}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 mx-auto transition-all shadow-lg"
-          >
-            <Info size={20} />
-            {showMission ? 'Hide' : 'Show'} Mission
-          </button>
-        </div>
-        
-        <div className="text-center mb-6">
-          <button
-            onClick={() => setShowDataControls(!showDataControls)}
-            className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white px-6 py-2 rounded-full flex items-center gap-2 mx-auto transition-all shadow-lg"
-          >
-            <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
-            {showDataControls ? 'Hide' : 'Show'} Data Controls
-          </button>
-        </div>
-        
-        {showDataControls && (
-          <div className="mb-6 bg-gradient-to-br from-green-500 to-blue-600 text-white rounded-3xl p-6 shadow-2xl">
-            <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
-              📊 Data Controls
-            </h2>
-            <div className="space-y-3">
-              <button
-                onClick={() => fetchAllStockData(true)}
-                disabled={isRefreshing}
-                className={`w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2 ${
-                  isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh All Data Now'}
-              </button>
-              
-              {Object.keys(apiErrors).length > 0 && (
-                <div className="bg-red-500/30 border-2 border-red-400 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-white font-bold mb-2">
-                    <AlertCircle size={16} />
-                    API Errors Detected
-                  </div>
-                  <div className="text-sm text-white/90 space-y-1">
-                    {Object.entries(apiErrors).map(([symbol, error]) => (
-                      <div key={symbol}>
-                        {symbol}: {error}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
-                <h3 className="font-bold mb-2">Toggle Data Mode Per Stock:</h3>
-                <div className="space-y-2">
-                  {stocks.map(stock => (
-                    <div key={stock.symbol} className="flex items-center justify-between">
-                      <span className="font-medium">{stock.symbol}</span>
-                      <button
-                        onClick={() => toggleStockDataMode(stock.symbol)}
-                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                          stock.useRealData 
-                            ? 'bg-green-500 hover:bg-green-600 text-white' 
-                            : 'bg-yellow-500 hover:bg-yellow-600 text-black'
-                        }`}
-                      >
-                        {stock.useRealData ? '📡 Live Data' : '🎲 Mock Data'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="text-sm text-white/80">
-                <p>• Live Data: Real prices from Finnhub/Alpha Vantage APIs</p>
-                <p>• Mock Data: Generated random prices for testing</p>
-                <p>• Auto-refresh: Every 60 seconds</p>
-                <p>• Manual refresh: Updates all stocks immediately</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-       {showMission && (
-  <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
-    <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
-      🌊 Our Mission 🏄‍♂️
-    </h2>
-    <div className="space-y-3 text-base">
-      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
-      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-      <p>NEW: Real-time market data from Finnhub & Alpha Vantage APIs! 📡</p>
-    </div>
-  </div>
-)}
-
-{celebration && (
-  <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
-  <div className="text-8xl animate-bounce text-center">🎉✨🏆✨🎉</div>
-</div>
-)}
-        
-        <div className="bg-white/10 backdrop-blur-md rounded-lg p-3 mb-6 border border-white/20">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-blue-200">
-              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-              <span>Live Market Data</span>
-              {isRefreshing && <span className="text-yellow-300">(Updating...)</span>}
-            </div>
-            <div className="text-blue-300">
-              Auto-refresh: 60s
-            </div>
-          </div>
-          {Object.keys(realTimeData).length > 0 && (
-            <div className="mt-2 text-xs text-blue-300 flex flex-wrap gap-2">
-              {Object.entries(realTimeData).map(([symbol, data]) => (
-                <span key={symbol} className="flex items-center gap-1">
-                  {data.isLive ? (
-                    <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                  ) : (
-                    <AlertCircle size={10} className="text-yellow-400" />
-                  )}
-                  {symbol}: {data.source}
-                </span>
-              ))}
-            </div>
-          )}
-          {Object.keys(apiErrors).length > 0 && (
-            <div className="mt-2 text-xs text-red-300 flex items-center gap-1">
-              <AlertCircle size={12} />
-              {Object.keys(apiErrors).length} stock(s) using fallback data
-            </div>
-          )}
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {stocks.map((stock) => {
-            const char = getCharacter(selectedChars[stock.symbol]);
-            const startPrice = stock.history[0] || 0;
-            const endPrice = stock.history[stock.history.length - 1] || 0;
-            const priceChange = startPrice > 0 ? ((endPrice - startPrice) / startPrice * 100).toFixed(2) : '0.00';
-            const isSelected = selectedStock === stock.symbol;
-            
-            return (
-              <div 
-                key={stock.symbol}
-                ref={el => cardRefs.current[stock.symbol] = el}
-                onClick={() => setSelectedStock(stock.symbol)}
-                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
-                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
-                onTouchEnd={handleCanvasTouchEnd}
-                className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative ${
-                  isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
-                }`}
-                style={{ touchAction: 'none' }}
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeStock(stock.symbol);
-                  }}
-                  className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors z-10"
-                >
-                  <X size={20} />
-                </button>
-                
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-3xl font-bold text-white">{stock.symbol}</h3>
-                      {isSelected && <span className="text-green-400 text-sm font-bold">● ACTIVE</span>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{char?.emoji}</span>
-                      <div className="text-right">
-                        <div className="text-xs text-blue-300">{char?.name}</div>
-                        <div className={`text-sm font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
-                        </div>
-                        {stock.realTimeInfo && (
-                          <div className="text-xs text-blue-200 flex items-center gap-1">
-                            {stock.realTimeInfo.isLive ? (
-                              <span className="flex items-center gap-1">
-                                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                                {stock.realTimeInfo.source}
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1">
-                                <AlertCircle size={10} />
-                                {stock.realTimeInfo.source}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {!stock.useRealData && (
-                          <div className="text-xs text-yellow-300 flex items-center gap-1">
-                            🎲 Mock Mode
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {stock.realTimeInfo && (
-                    <div className="text-xs text-blue-200 flex items-center justify-between">
-                      <span>Current: ${stock.realTimeInfo.currentPrice.toFixed(2)}</span>
-                      <span className="text-blue-300">
-                        Updated: {new Date(stock.realTimeInfo.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                
-                <canvas
-                  ref={el => canvasRefs.current[stock.symbol] = el}
-                  width={600}
-                  height={200}
-                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none"
-                  style={{ touchAction: 'none' }}
-                />
-                
-                <div className="border-t border-white/20 pt-3">
-                  <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {characters.map(char => {
-                      const isUnlocked = unlockedChars.includes(char.id);
-                      const isCharSelected = selectedChars[stock.symbol] === char.id;
-                      
-                      return (
-                        <button
-                          key={char.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            selectCharacter(stock.symbol, char.id);
-                          }}
-                          disabled={!isUnlocked}
-                          className={`
-                            relative w-12 h-12 rounded-lg flex items-center justify-center text-2xl
-                            transition-all duration-200 border-2
-                            ${isCharSelected ? 'border-blue-400 scale-110 shadow-lg' : 'border-white/20'}
-                            ${isUnlocked ? 'hover:scale-105 cursor-pointer bg-white/10' : 'opacity-40 cursor-not-allowed bg-white/5'}
-                          `}
-                          title={isUnlocked ? char.name : char.unlock}
-                        >
-                          {char.emoji}
-                          {!isUnlocked && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg text-xs">
-                              🔒
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        
-        {!showAddForm ? (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition-colors flex items-center justify-center gap-2 mb-6"
-          >
-            <Plus size={24} />
-            Add New Wave
-          </button>
-        ) : (
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 mb-6">
-            <h3 className="text-2xl font-bold text-white mb-4">Catch a New Wave</h3>
-            <div className="grid grid-cols-1 gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Symbol (e.g., NVDA)"
-                value={newStock.symbol}
-                onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
-                className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
-              <div className="flex gap-2">
-                {colors.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setNewStock({ ...newStock, color })}
-                    className={`w-10 h-10 rounded-full border-2 ${newStock.color === color ? 'border-white' : 'border-white/20'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <button
-                onClick={handleAddStock}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition-colors"
-              >
-                Add Stock
-              </button>
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-        
-        <div className="text-center text-blue-200 text-sm mb-6">
-          💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
-        </div>
-
-        <div className="flex justify-center gap-4 mb-6">
-          <a
-            href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
-          >
-            Donate
-          </a>
-          <a
-            href="mailto:surf.fm.official@gmail.com"
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
-          >
-            Contact
-          </a>
-        </div>
-      </div>
