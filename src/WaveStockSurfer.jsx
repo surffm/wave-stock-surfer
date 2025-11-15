@@ -93,6 +93,13 @@ const WaveStockSurfer = () => {
     }), {})
   );
   
+  const [cutbackSplashes, setCutbackSplashes] = useState(
+    stocks.reduce((acc, stock) => ({
+      ...acc,
+      [stock.symbol]: []
+    }), {})
+  );
+  
   const canvasRefs = useRef({});
   const cardRefs = useRef({});
   const timeRef = useRef(0);
@@ -235,6 +242,11 @@ const WaveStockSurfer = () => {
         let newY = current.y;
         let newDirection = current.direction;
         
+        // Initialize previous X if not set
+        if (previousX.current[selectedStock] === undefined) {
+          previousX.current[selectedStock] = current.x;
+        }
+        
         // Get wave height at current X position to clamp surfer
         const stock = stocks.find(s => s.symbol === selectedStock);
         if (stock) {
@@ -282,13 +294,23 @@ const WaveStockSurfer = () => {
           if (distance > 0.005) {
             // Increased speed for smoother, more responsive movement
             const speed = 0.08;
-            const prevX = newX;
             newX = current.x + (deltaX / distance) * Math.min(speed, distance);
             
-            // Update direction based on movement
-            if (newX > prevX) {
+            // ALWAYS update direction based on X movement - no threshold
+            const xDiff = newX - previousX.current[selectedStock];
+            if (xDiff > 0) {
+              // Check if we're changing direction for cutback splash
+              if (newDirection === -1) {
+                // Big cutback splash when changing from left to right!
+                createCutbackSplash(selectedStock, newX, current.y);
+              }
               newDirection = 1; // Moving right
-            } else if (newX < prevX) {
+            } else if (xDiff < 0) {
+              // Check if we're changing direction for cutback splash
+              if (newDirection === 1) {
+                // Big cutback splash when changing from right to left!
+                createCutbackSplash(selectedStock, newX, current.y);
+              }
               newDirection = -1; // Moving left
             }
             
@@ -336,13 +358,25 @@ const WaveStockSurfer = () => {
         
         // Keyboard controls (override target movement)
         if (keysPressed.current['ArrowLeft']) {
+          const oldX = newX;
           newX = Math.max(0.05, newX - 0.02);
-          newDirection = -1;
+          if (newX < oldX) {
+            if (newDirection === 1) {
+              createCutbackSplash(selectedStock, newX, current.y);
+            }
+            newDirection = -1;
+          }
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowRight']) {
+          const oldX = newX;
           newX = Math.min(0.95, newX + 0.02);
-          newDirection = 1;
+          if (newX > oldX) {
+            if (newDirection === -1) {
+              createCutbackSplash(selectedStock, newX, current.y);
+            }
+            newDirection = 1;
+          }
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowUp']) {
@@ -358,6 +392,9 @@ const WaveStockSurfer = () => {
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         
+        // Update previous X for next frame
+        previousX.current[selectedStock] = newX;
+        
         return {
           ...prev,
           [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection }
@@ -367,6 +404,62 @@ const WaveStockSurfer = () => {
     
     return () => clearInterval(moveInterval);
   }, [selectedStock, targetPositions, stocks]);
+  
+  const createCutbackSplash = useCallback((stockSymbol, x, y) => {
+    const canvas = canvasRefs.current[stockSymbol];
+    if (!canvas) return;
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    const stock = stocks.find(s => s.symbol === stockSymbol);
+    if (!stock) return;
+    
+    const history = stock.history;
+    const minPrice = Math.min(...history);
+    const maxPrice = Math.max(...history);
+    const priceRange = maxPrice - minPrice || 1;
+    
+    const normalizePrice = (price) => {
+      const normalized = (price - minPrice) / priceRange;
+      return height * 0.8 - normalized * height * 0.5;
+    };
+    
+    const historyIndex = x * (history.length - 1);
+    const index = Math.floor(historyIndex);
+    const nextIndex = Math.min(index + 1, history.length - 1);
+    const t = historyIndex - index;
+    const price = history[index] * (1 - t) + history[nextIndex] * t;
+    
+    let baseY = normalizePrice(price);
+    const waveMotion = Math.sin(x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+    baseY += waveMotion;
+    const verticalOffset = (y - 0.5) * height * 0.8;
+    
+    const splashX = x * width;
+    const splashY = baseY + verticalOffset;
+    
+    // Create BIG cutback splash with lots of particles!
+    const particles = [];
+    for (let i = 0; i < 25; i++) {
+      const angle = (Math.random() * Math.PI) - Math.PI / 2;
+      const speed = Math.random() * 8 + 6;
+      particles.push({
+        id: Date.now() + Math.random(),
+        x: splashX,
+        y: splashY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 3,
+        life: 1,
+        size: Math.random() * 5 + 3
+      });
+    }
+    
+    setCutbackSplashes(prev => ({
+      ...prev,
+      [stockSymbol]: [...prev[stockSymbol], ...particles]
+    }));
+  }, [stocks]);
   
   useEffect(() => {
     const trailInterval = setInterval(() => {
@@ -597,8 +690,8 @@ const WaveStockSurfer = () => {
     ctx.translate(surferPoint.x, surferPoint.y - 15 + jumpOffset + verticalOffset);
     ctx.rotate(angle);
     
-    // Flip horizontally based on direction
-    if (surferPos.direction === -1) {
+    // Flip horizontally based on direction (inverted logic)
+    if (surferPos.direction === 1) {
       ctx.scale(-1, 1);
     }
     
@@ -625,6 +718,20 @@ const WaveStockSurfer = () => {
       ctx.globalAlpha = 1;
     });
     
+    // Draw cutback splashes - BIGGER and BRIGHTER!
+    const splashes = cutbackSplashes[stock.symbol] || [];
+    splashes.forEach(particle => {
+      ctx.globalAlpha = particle.life;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#60A5FA';
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    });
+    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.font = 'bold 12px Arial';
     const startPrice = history[0];
@@ -637,7 +744,7 @@ const WaveStockSurfer = () => {
     const changeColor = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillStyle = changeColor;
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
-  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails]);
+  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
   
   useEffect(() => {
     let animationFrame;
@@ -655,6 +762,23 @@ const WaveStockSurfer = () => {
               y: particle.y + particle.vy,
               vy: particle.vy + 0.2,
               life: particle.life - 0.02
+            }))
+            .filter(p => p.life > 0);
+        });
+        return updated;
+      });
+      
+      setCutbackSplashes(prev => {
+        const updated = {};
+        Object.keys(prev).forEach(symbol => {
+          updated[symbol] = prev[symbol]
+            .map(particle => ({
+              ...particle,
+              x: particle.x + particle.vx,
+              y: particle.y + particle.vy,
+              vy: particle.vy + 0.3,
+              vx: particle.vx * 0.98,
+              life: particle.life - 0.015
             }))
             .filter(p => p.life > 0);
         });
@@ -698,6 +822,7 @@ const WaveStockSurfer = () => {
       }));
       setRockets(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setWaterTrails(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
+      setCutbackSplashes(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setTargetPositions(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: null }));
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
@@ -726,6 +851,11 @@ const WaveStockSurfer = () => {
       const newTrails = { ...prev };
       delete newTrails[symbol];
       return newTrails;
+    });
+    setCutbackSplashes(prev => {
+      const newSplashes = { ...prev };
+      delete newSplashes[symbol];
+      return newSplashes;
     });
     setTargetPositions(prev => {
       const newTargets = { ...prev };
