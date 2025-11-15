@@ -405,6 +405,66 @@ const WaveStockSurfer = () => {
   }, [selectedStock, targetPositions, stocks, createCutbackSplash]);
   
   useEffect(() => {
+    const moveInterval = setInterval(() => {
+      if (!selectedStock) return;
+      setSurferPositions(prev => {
+        const current = prev[selectedStock];
+        if (!current) return prev;
+        let newX = current.x;
+        let newY = current.y;
+        let newDirection = current.direction;
+        if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
+        
+        // Handle touch/mouse targeting
+        const target = targetPositions[selectedStock];
+        if (target) {
+          const deltaX = target.x - current.x;
+          const deltaY = target.y - current.y;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          if (distance > 0.005) {
+            const speed = 0.08;
+            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
+            newY = current.y + (deltaY / distance) * Math.min(speed, distance);
+            const xDiff = newX - previousX.current[selectedStock];
+            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
+            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
+          } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
+            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+          }
+        }
+        
+        // Handle keyboard controls
+        if (keysPressed.current['ArrowLeft']) {
+          const oldX = newX;
+          newX = Math.max(0.05, newX - 0.02);
+          if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX < oldX) newDirection = -1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowRight']) {
+          const oldX = newX;
+          newX = Math.min(0.95, newX + 0.02);
+          if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX > oldX) newDirection = 1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowUp']) { 
+          newY = Math.max(0.1, newY - 0.02); 
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
+        }
+        if (keysPressed.current['ArrowDown']) { 
+          newY = Math.min(1.5, newY + 0.02); 
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
+        }
+        
+        previousX.current[selectedStock] = newX;
+        return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
+      });
+    }, 16);
+    return () => clearInterval(moveInterval);
+  }, [selectedStock, targetPositions, createCutbackSplash]);
+
+useEffect(() => {
     const trailInterval = setInterval(() => {
       stocks.forEach(stock => {
         const surferPos = surferPositions[stock.symbol];
