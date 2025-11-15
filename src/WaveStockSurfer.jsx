@@ -694,4 +694,87 @@ const WaveStockSurfer = () => {
     }, 100);
   }, []);
 
-  return (
+    return (
+    <div className="wave-stock-surfer" style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Stock canvases */}
+      {stocks.map(stock => (
+        <canvas
+          key={stock.symbol}
+          ref={el => (canvasRefs.current[stock.symbol] = el)}
+          width={window.innerWidth}
+          height={200}
+          style={{ display: 'block', margin: '20px auto', border: '1px solid #ccc', borderRadius: '12px' }}
+          onMouseDown={e => handleStockCardTouch(e, stock.symbol)}
+          onMouseMove={e => touchingRef.current && handleStockCardTouch(e, stock.symbol)}
+          onMouseUp={handleCanvasTouchEnd}
+          onTouchStart={e => handleStockCardTouch(e, stock.symbol)}
+          onTouchMove={e => handleStockCardTouch(e, stock.symbol)}
+          onTouchEnd={handleCanvasTouchEnd}
+        />
+      ))}
+
+      {/* Stock selection */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
+        {stocks.map(stock => (
+          <button
+            key={stock.symbol}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: selectedStock === stock.symbol ? '2px solid #34D399' : '1px solid #ccc',
+              background: '#f0f0f0',
+              cursor: 'pointer'
+            }}
+            onClick={() => setSelectedStock(stock.symbol)}
+          >
+            {stock.symbol}
+          </button>
+        ))}
+      </div>
+
+      {/* Add new stock */}
+      {showAddForm ? (
+        <div style={{ marginTop: '10px', textAlign: 'center' }}>
+          <input
+            type="text"
+            placeholder="Symbol"
+            value={newStock.symbol}
+            onChange={e => setNewStock(prev => ({ ...prev, symbol: e.target.value }))}
+            style={{ padding: '4px', marginRight: '4px', width: '80px' }}
+          />
+          <input
+            type="color"
+            value={newStock.color}
+            onChange={e => setNewStock(prev => ({ ...prev, color: e.target.value }))}
+            style={{ padding: '2px', marginRight: '4px' }}
+          />
+          <button onClick={handleAddStock} style={{ padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}>
+            Add
+          </button>
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', marginTop: '10px' }}>
+          <button
+            onClick={() => setShowAddForm(true)}
+            style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}
+          >
+            + Add Stock
+          </button>
+        </div>
+      )}
+
+      {/* Display API errors */}
+      {Object.keys(apiErrors).length > 0 && (
+        <div style={{ color: 'red', textAlign: 'center', marginTop: '10px' }}>
+          {Object.entries(apiErrors).map(([symbol, msg]) => (
+            <div key={symbol}>
+              {symbol}: {msg}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default WaveStockSurfer;
