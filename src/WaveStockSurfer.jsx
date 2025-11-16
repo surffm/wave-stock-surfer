@@ -393,27 +393,17 @@ const WaveStockSurfer = () => {
     currentTouchStock.current = null;
   }, []);
   
-  const jumpTimeoutRef = useRef(null);
-  
   const handleJump = useCallback(() => {
     if (selectedStock) {
       setSurferPositions(prev => {
         const current = prev[selectedStock];
-        if (current.jumping && current.spinning) {
+        if (current.jumping) {
           playSpinSound();
           return {
             ...prev,
             [selectedStock]: {
               ...current,
-              spinCount: current.spinCount + 1
-            }
-          };
-        } else if (current.jumping) {
-          playSpinSound();
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
+              direction: current.direction * -1,
               spinning: true,
               spinCount: current.spinCount + 1
             }
@@ -447,37 +437,17 @@ const WaveStockSurfer = () => {
   }, [selectedStock, playJumpSound, playSpinSound]);
   
   useEffect(() => {
-    let spinInterval;
-    
     const handleKeyDown = (e) => {
-      if (!keysPressed.current[e.key]) {
-        keysPressed.current[e.key] = true;
-        if (e.key === ' ' && selectedStock) {
-          handleJump();
-          // Start continuous spinning while space is held
-          spinInterval = setInterval(() => {
-            if (keysPressed.current[' ']) {
-              handleJump();
-            }
-          }, 100); // Faster spin increment (was 200ms, now 100ms)
-        }
-      }
+      keysPressed.current[e.key] = true;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      if (e.key === ' ' && selectedStock) handleJump();
     };
-    
-    const handleKeyUp = (e) => { 
-      keysPressed.current[e.key] = false;
-      if (e.key === ' ') {
-        clearInterval(spinInterval);
-      }
-    };
-    
+    const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      clearInterval(spinInterval);
     };
   }, [selectedStock, handleJump]);
   
@@ -582,15 +552,17 @@ const WaveStockSurfer = () => {
           newX = Math.max(0.05, newX - 0.02);
           if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
           if (newX < oldX) newDirection = -1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowRight']) {
           const oldX = newX;
           newX = Math.min(0.95, newX + 0.02);
           if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
           if (newX > oldX) newDirection = 1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
-        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); }
-        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); }
+        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
         previousX.current[selectedStock] = newX;
         return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
       });
