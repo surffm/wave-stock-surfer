@@ -437,83 +437,45 @@ return; // mute
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
-  const handleStockCardTouch = useCallback((e, stockSymbol) => {
-    if (stockSymbol !== selectedStock) return;
-    e.preventDefault();
-    const canvas = canvasRefs.current[stockSymbol];
-    if (!canvas) return;
-    const canvasRect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const normalizedX = Math.max(0.05, Math.min(0.95, (clientX - canvasRect.left) / canvasRect.width));
-    const normalizedY = Math.max(0.1, Math.min(1.5, (clientY - canvasRect.top) / canvasRect.height));
-    setTargetPositions(prev => ({ ...prev, [stockSymbol]: { x: normalizedX, y: normalizedY } }));
-    touchingRef.current = true;
-    currentTouchStock.current = stockSymbol;
-  }, [selectedStock]);
-  
-  const handleCanvasTouchEnd = useCallback(() => {
-    touchingRef.current = false;
-    currentTouchStock.current = null;
-  }, []);
-  
-  const handleJump = useCallback(() => {
-    if (selectedStock) {
-      setSurferPositions(prev => {
-        const current = prev[selectedStock];
-        if (current.jumping) {
-          playSpinSound();
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
-              direction: current.direction * -1,
-              spinning: true,
-              spinCount: current.spinCount + 1
-            }
-          };
-        } else {
-          playJumpSound();
-          setTimeout(() => {
-            setSurferPositions(p => ({
-              ...p,
-              [selectedStock]: {
-                ...p[selectedStock],
-                jumping: false,
-                spinning: false,
-                spinCount: 0
-              }
-            }));
-          }, 600);
-          
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
-              jumping: true,
-              spinning: false,
-              spinCount: 0
-            }
-          };
-        }
-      });
+ const handleStockCardTouch = useCallback((e, stockSymbol) => {
+  if (stockSymbol !== selectedStock) return;
+  e.preventDefault();
+  const canvas = canvasRefs.current[stockSymbol];
+  if (!canvas) return;
+  const canvasRect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const normalizedX = Math.max(0.05, Math.min(0.95, (clientX - canvasRect.left) / canvasRect.width));
+  const normalizedY = Math.max(0.1, Math.min(1.5, (clientY - canvasRect.top) / canvasRect.height));
+
+  setSurferPositions(prev => {
+    const current = prev[stockSymbol];
+    let newDirection = current.direction;
+
+    // Determine direction change for splash/glitch effect
+    if (normalizedX > current.x && newDirection === -1) {
+      createCutbackSplash(stockSymbol, normalizedX, current.y);
+      newDirection = 1;
+    } else if (normalizedX < current.x && newDirection === 1) {
+      createCutbackSplash(stockSymbol, normalizedX, current.y);
+      newDirection = -1;
     }
-  }, [selectedStock, playJumpSound, playSpinSound]);
-  
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      keysPressed.current[e.key] = true;
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
-      if (e.key === ' ' && selectedStock) handleJump();
+
+    return {
+      ...prev,
+      [stockSymbol]: {
+        ...current,
+        x: normalizedX,
+        y: normalizedY,
+        direction: newDirection
+      }
     };
-    const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [selectedStock, handleJump]);
+  });
+
+  setTargetPositions(prev => ({ ...prev, [stockSymbol]: { x: normalizedX, y: normalizedY } }));
+  touchingRef.current = true;
+  currentTouchStock.current = stockSymbol;
+}, [selectedStock, createCutbackSplash]);
   
   const createCutbackSplash = useCallback((stockSymbol, x, y) => {
     const canvas = canvasRefs.current[stockSymbol];
