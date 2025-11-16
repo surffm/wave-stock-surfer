@@ -703,7 +703,6 @@ const WaveStockSurfer = () => {
       <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
       <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
       <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-      <p>NOW WITH LIVE DATA: Real stock prices shown on each wave! 📈📊</p>
     </div>
   </div>
 )}
