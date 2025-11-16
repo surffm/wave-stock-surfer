@@ -14,7 +14,7 @@ const WaveStockSurfer = () => {
   const [realPrices, setRealPrices] = useState({});
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
