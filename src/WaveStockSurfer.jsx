@@ -353,8 +353,25 @@ const WaveStockSurfer = () => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    
+    // Initialize audio on first user interaction
+    const startAudio = () => {
+      if (soundEnabled && !audioContextRef.current) {
+        initAudio();
+      }
+    };
+    
+    window.addEventListener('click', startAudio, { once: true });
+    window.addEventListener('touchstart', startAudio, { once: true });
+    window.addEventListener('keydown', startAudio, { once: true });
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('click', startAudio);
+      window.removeEventListener('touchstart', startAudio);
+      window.removeEventListener('keydown', startAudio);
+    };
+  }, [initAudio, soundEnabled]);
   
   const handleStockCardTouch = useCallback((e, stockSymbol) => {
     if (stockSymbol !== selectedStock) return;
