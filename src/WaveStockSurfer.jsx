@@ -401,11 +401,6 @@ const WaveStockSurfer = () => {
         const current = prev[selectedStock];
         if (current.jumping && current.spinning) {
           playSpinSound();
-          // Clear the timeout while actively spinning
-          if (jumpTimeoutRef.current) {
-            clearTimeout(jumpTimeoutRef.current);
-            jumpTimeoutRef.current = null;
-          }
           return {
             ...prev,
             [selectedStock]: {
@@ -415,11 +410,6 @@ const WaveStockSurfer = () => {
           };
         } else if (current.jumping) {
           playSpinSound();
-          // Clear the timeout while actively spinning
-          if (jumpTimeoutRef.current) {
-            clearTimeout(jumpTimeoutRef.current);
-            jumpTimeoutRef.current = null;
-          }
           return {
             ...prev,
             [selectedStock]: {
@@ -430,6 +420,17 @@ const WaveStockSurfer = () => {
           };
         } else {
           playJumpSound();
+          setTimeout(() => {
+            setSurferPositions(p => ({
+              ...p,
+              [selectedStock]: {
+                ...p[selectedStock],
+                jumping: false,
+                spinning: false,
+                spinCount: 0
+              }
+            }));
+          }, 600);
           
           return {
             ...prev,
@@ -468,18 +469,6 @@ const WaveStockSurfer = () => {
       keysPressed.current[e.key] = false;
       if (e.key === ' ') {
         clearInterval(spinInterval);
-        // When space is released, allow the jump to end naturally after 600ms
-        jumpTimeoutRef.current = setTimeout(() => {
-          setSurferPositions(prev => ({
-            ...prev,
-            [selectedStock]: {
-              ...prev[selectedStock],
-              jumping: false,
-              spinning: false,
-              spinCount: 0
-            }
-          }));
-        }, 600);
       }
     };
     
