@@ -817,7 +817,7 @@ return; // mute
     
     if (surferPos.spinCount > 0 && surferPos.jumping && stock.symbol === selectedStock) {
       ctx.save();
-      ctx.font = 'bold 3px Arial';
+      ctx.font = 'bold 24px Arial';
       ctx.fillStyle = '#FFD700';
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 4;
@@ -1090,7 +1090,7 @@ return; // mute
 
         {celebration && (
           <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
-            <div className="text-8xl animate-bounce text-center">🎉✨🏆✨🎉</div>
+            <div className="text-4xl animate-bounce text-center">🎉✨🏆✨🎉</div>
           </div>
         )}
         
