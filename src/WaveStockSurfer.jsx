@@ -150,61 +150,81 @@ const WaveStockSurfer = () => {
   }
 }, [soundEnabled]);
   
-  const playJumpSound = useCallback(() => {
-return; // mute
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(400, now);
-      osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
-      
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.2);
-    } catch (error) {
-      console.error('Sound playback error:', error);
+const playJumpSound = useCallback(() => {
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    const bufferSize = ctx.sampleRate * 0.12;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.18; // subtle
     }
-  }, [soundEnabled]);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1000 + Math.random() * 300, now);
+    filter.Q.value = 0.8;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.06); // soft bump
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGainRef.current);
+
+    noise.start(now);
+    noise.stop(now + 0.22);
+  } catch (error) {
+    console.error("Jump sound error:", error);
+  }
+}, [soundEnabled]);
   
   const playSpinSound = useCallback(() => {
-return; // mute
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-      
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.12);
-    } catch (error) {
-      console.error('Sound playback error:', error);
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    const bufferSize = ctx.sampleRate * 0.15;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.2; // soft
     }
-  }, [soundEnabled]);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass"; // gives a spinning “whoosh” feeling
+    filter.frequency.setValueAtTime(800 + Math.random() * 400, now);
+    filter.Q.value = 1;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.03, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + 0.05); // gentle rise
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGainRef.current);
+
+    noise.start(now);
+    noise.stop(now + 0.25);
+  } catch (error) {
+    console.error("Spin sound error:", error);
+  }
+}, [soundEnabled]);
   
   const playScoreSound = useCallback(() => {
 return; // mute
