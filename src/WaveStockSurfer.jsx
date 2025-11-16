@@ -155,8 +155,9 @@ const [selectedStock, setSelectedStock] = useState('GME');
   useEffect(() => {
     const updateAllStocks = async () => {
       setIsLoadingData(true);
+      const currentStocks = stocks; // Capture current stocks
       const updatedStocks = await Promise.all(
-        stocks.map(async (stock) => {
+        currentStocks.map(async (stock) => {
           const newHistory = await fetchStockData(stock.symbol);
           return {
             ...stock,
@@ -169,14 +170,15 @@ const [selectedStock, setSelectedStock] = useState('GME');
       setIsLoadingData(false);
     };
     
-    // Initial fetch
+    // Initial fetch on mount
     updateAllStocks();
     
     // Update every hour
     const interval = setInterval(updateAllStocks, 60 * 60 * 1000);
     
     return () => clearInterval(interval);
-  }, []); // Only run once on mount
+  }, [fetchStockData]); // Add fetchStockData as dependency
+
 useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
     checkMobile();
