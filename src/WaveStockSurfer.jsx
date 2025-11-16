@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Sparkles, Zap, TrendingUp, Info, Plus, X } from 'lucide-react';
+import { Sparkles, Zap, TrendingUp, Info, Plus, X, RefreshCw, AlertCircle } from 'lucide-react';
 
 const WaveStockSurfer = () => {
   const [score, setScore] = useState(0);
@@ -11,9 +11,12 @@ const WaveStockSurfer = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
   const [isMobile, setIsMobile] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(false);
-  
-  const FINNHUB_API_KEY = 'd49emh9r01qshn3lui9gd49emh9r01qshn3luia0';
+  const [realTimeData, setRealTimeData] = useState({});
+  const [dataRefreshKey, setDataRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [apiErrors, setApiErrors] = useState({});
+  const [showDataControls, setShowDataControls] = useState(false);
+  const lastFetchTime = useRef({});
   
   const characters = useMemo(() => [
     { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
@@ -31,52 +34,6 @@ const WaveStockSurfer = () => {
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
-// Fetch real stock data from Finnhub
-  const fetchStockData = useCallback(async (symbol) => {
-    try {
-      const now = Date.now();
-      const oneDay = 24 * 60 * 60 * 1000;
-      const to = Math.floor(now / 1000);
-      const from = Math.floor((now - 30 * oneDay) / 1000); // 30 days of data
-      
-      const response = await fetch(
-        `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch stock data');
-      }
-      
-      const data = await response.json();
-      
-      if (data.s === 'ok' && data.c && data.c.length > 0) {
-        // Use closing prices and smooth them for nice waves
-        const closingPrices = data.c;
-        
-        // Interpolate to get more points for smoother waves
-        const interpolatedPrices = [];
-        for (let i = 0; i < closingPrices.length - 1; i++) {
-          interpolatedPrices.push(closingPrices[i]);
-          // Add interpolated points between each day
-          const diff = closingPrices[i + 1] - closingPrices[i];
-          for (let j = 1; j < 16; j++) {
-            interpolatedPrices.push(closingPrices[i] + (diff * j / 16));
-          }
-        }
-        interpolatedPrices.push(closingPrices[closingPrices.length - 1]);
-        
-        return interpolatedPrices;
-      } else {
-        // Fallback to generated data if API fails
-        console.warn(`No data for ${symbol}, using generated data`);
-        return generatePriceHistory(100, 0.03, 500);
-      }
-    } catch (error) {
-      console.error(`Error fetching data for ${symbol}:`, error);
-      // Fallback to generated data
-      return generatePriceHistory(100, 0.03, 500);
-    }
-  }, [FINNHUB_API_KEY]);
   
   const generatePriceHistory = useCallback((basePrice, volatility, points) => {
     const history = [basePrice];
@@ -88,109 +45,204 @@ const WaveStockSurfer = () => {
   }, []);
   
   const initialStocks = useMemo(() => [
-    { 
-      symbol: 'GME', 
-      color: '#EC4899', 
-      history: (() => {
-        const raw = generatePriceHistory(25, 0.12, 500);
-        const scaleFactor = 500000 / raw[raw.length - 1];
-        return raw.map(p => p * scaleFactor);
-      })(),
-      selectedChar: 'goku',
-      lastUpdated: null
-    },
-    { 
-      symbol: 'AAPL', 
-      color: '#60A5FA', 
-      history: generatePriceHistory(170, 0.02, 50), 
-      selectedChar: 'vegeta',
-      lastUpdated: null
-    },
-    { 
-      symbol: 'GOOGL', 
-      color: '#34D399', 
-      history: generatePriceHistory(140, 0.025, 50), 
-      selectedChar: 'goku',
-      lastUpdated: null
-    },
-    { 
-      symbol: 'TSLA', 
-      color: '#F87171', 
-      history: generatePriceHistory(250, 0.04, 50), 
-      selectedChar: 'vegeta',
-      lastUpdated: null
-    }
-  ], [generatePriceHistory]);
+    { symbol: 'GME', color: '#EC4899', history: [], selectedChar: 'goku', useRealData: true },
+    { symbol: 'AAPL', color: '#60A5FA', history: [], selectedChar: 'vegeta', useRealData: true },
+    { symbol: 'GOOGL', color: '#34D399', history: [], selectedChar: 'goku', useRealData: true },
+    { symbol: 'TSLA', color: '#F87171', history: [], selectedChar: 'vegeta', useRealData: true }
+  ], []);
   
   const [stocks, setStocks] = useState(initialStocks);
-const [selectedStock, setSelectedStock] = useState('GME');
-  const [selectedChars, setSelectedChars] = useState({ 
-    GME: 'goku', 
-    AAPL: 'vegeta', 
-    GOOGL: 'goku', 
-    TSLA: 'vegeta' 
-  });
+  const [selectedStock, setSelectedStock] = useState('GME');
+  const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
   const [surferPositions, setSurferPositions] = useState(
-    stocks.reduce((acc, stock) => ({ 
+    initialStocks.reduce((acc, stock) => ({ 
       ...acc, 
       [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, hasRocket: false, direction: 1 } 
     }), {})
   );
-  const [rockets, setRockets] = useState(
-    stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {})
-  );
-  const [waterTrails, setWaterTrails] = useState(
-    stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {})
-  );
-  const [cutbackSplashes, setCutbackSplashes] = useState(
-    stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {})
-  );
+  const [rockets, setRockets] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [waterTrails, setWaterTrails] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [cutbackSplashes, setCutbackSplashes] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [targetPositions, setTargetPositions] = useState(initialStocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
+  
   const canvasRefs = useRef({});
   const cardRefs = useRef({});
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   const previousX = useRef({});
+  const touchingRef = useRef(false);
+  const currentTouchStock = useRef(null);
   
-  // Update stock data every hour
   useEffect(() => {
-    const updateAllStocks = async () => {
-      setIsLoadingData(true);
-      const currentStocks = stocks; // Capture current stocks
-      const updatedStocks = await Promise.all(
-        currentStocks.map(async (stock) => {
-          const newHistory = await fetchStockData(stock.symbol);
-          return {
-            ...stock,
-            history: newHistory,
-            lastUpdated: Date.now()
-          };
-        })
-      );
-      setStocks(updatedStocks);
-      setIsLoadingData(false);
-    };
-    
-    // Initial fetch on mount
-    updateAllStocks();
-    
-    // Update every hour
-    const interval = setInterval(updateAllStocks, 60 * 60 * 1000);
-    
-    return () => clearInterval(interval);
-  }, [fetchStockData]); // Add fetchStockData as dependency
-
-useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
-  const [targetPositions, setTargetPositions] = useState(
-    stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {})
-  );
-  const touchingRef = useRef(false);
-  const currentTouchStock = useRef(null);
+  const fetchAllStockData = useCallback(async (forceRefresh = false) => {
+    setIsRefreshing(true);
+    const FINNHUB_API_KEY = 'd49emh9r01qshn3lui9gd49emh9r01qshn3luia0';
+    const ALPHA_VANTAGE_KEY = 'UAL2SCJ3884W7O2E';
+    
+    const newRealTimeData = {};
+    const newApiErrors = {};
+    
+    for (const stock of stocks) {
+      if (!stock.useRealData) continue;
+      
+      const lastFetch = lastFetchTime.current[stock.symbol];
+      if (!forceRefresh && lastFetch && (Date.now() - lastFetch < 30000)) {
+        if (realTimeData[stock.symbol]) {
+          newRealTimeData[stock.symbol] = realTimeData[stock.symbol];
+          continue;
+        }
+      }
+      
+      try {
+        console.log(`Fetching ${stock.symbol} from Finnhub...`);
+        const finnhubResponse = await fetch(
+          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=${FINNHUB_API_KEY}`
+        );
+        
+        if (finnhubResponse.ok) {
+          const data = await finnhubResponse.json();
+          console.log(`${stock.symbol} Finnhub data:`, data);
+          
+          if (data.c && data.c > 0) {
+            newRealTimeData[stock.symbol] = {
+              currentPrice: data.c,
+              open: data.o,
+              high: data.h,
+              low: data.l,
+              previousClose: data.pc,
+              changePercent: ((data.c - data.pc) / data.pc * 100).toFixed(2),
+              source: 'Finnhub',
+              timestamp: new Date(),
+              isLive: true
+            };
+            lastFetchTime.current[stock.symbol] = Date.now();
+            delete newApiErrors[stock.symbol];
+            console.log(`${stock.symbol} successfully fetched from Finnhub`);
+            continue;
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log(`Trying Alpha Vantage for ${stock.symbol}...`);
+        const alphaResponse = await fetch(
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=${ALPHA_VANTAGE_KEY}`
+        );
+        
+        if (alphaResponse.ok) {
+          const alphaData = await alphaResponse.json();
+          console.log(`${stock.symbol} Alpha Vantage data:`, alphaData);
+          const quote = alphaData['Global Quote'];
+          
+          if (quote && quote['05. price']) {
+            newRealTimeData[stock.symbol] = {
+              currentPrice: parseFloat(quote['05. price']),
+              open: parseFloat(quote['02. open']),
+              high: parseFloat(quote['03. high']),
+              low: parseFloat(quote['04. low']),
+              previousClose: parseFloat(quote['08. previous close']),
+              changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
+              source: 'Alpha Vantage',
+              timestamp: new Date(),
+              isLive: true
+            };
+            lastFetchTime.current[stock.symbol] = Date.now();
+            delete newApiErrors[stock.symbol];
+            console.log(`${stock.symbol} successfully fetched from Alpha Vantage`);
+            continue;
+          }
+        }
+        
+        throw new Error('No valid data from APIs');
+        
+      } catch (error) {
+        console.error(`Error fetching ${stock.symbol}:`, error);
+        newApiErrors[stock.symbol] = error.message;
+        
+        const basePrice = Math.random() * 200 + 50;
+        newRealTimeData[stock.symbol] = {
+          currentPrice: basePrice,
+          open: basePrice * 0.98,
+          high: basePrice * 1.05,
+          low: basePrice * 0.95,
+          previousClose: basePrice * 0.99,
+          changePercent: (Math.random() * 10 - 5).toFixed(2),
+          source: 'Generated (API Error)',
+          timestamp: new Date(),
+          isLive: false
+        };
+      }
+    }
+    
+    console.log('Final real-time data:', newRealTimeData);
+    setRealTimeData(newRealTimeData);
+    setApiErrors(newApiErrors);
+    setIsRefreshing(false);
+  }, [stocks, realTimeData]);
+  
+  useEffect(() => {
+    fetchAllStockData();
+    
+    const interval = setInterval(() => {
+      fetchAllStockData();
+      setDataRefreshKey(prev => prev + 1);
+    }, 60000);
+    
+    return () => clearInterval(interval);
+  }, [fetchAllStockData]);
+  
+  useEffect(() => {
+    console.log('Updating stock histories with real-time data...');
+    setStocks(prevStocks => {
+      return prevStocks.map(stock => {
+        const rtData = realTimeData[stock.symbol];
+        if (!rtData || !stock.useRealData) {
+          if (stock.history.length === 0) {
+            return {
+              ...stock,
+              history: generatePriceHistory(
+                stock.symbol === 'GME' ? 25 : 170,
+                0.03,
+                50
+              )
+            };
+          }
+          return stock;
+        }
+        
+        const { currentPrice, open, high, low } = rtData;
+        const points = 50;
+        const history = [];
+        
+        history.push(open);
+        
+        for (let i = 1; i < points - 1; i++) {
+          const progress = i / (points - 1);
+          const targetPrice = open + (currentPrice - open) * progress;
+          const volatility = (high - low) * 0.1;
+          const randomWalk = (Math.random() - 0.5) * volatility;
+          const price = Math.max(low * 0.98, Math.min(high * 1.02, targetPrice + randomWalk));
+          history.push(price);
+        }
+        
+        history.push(currentPrice);
+        
+        console.log(`${stock.symbol} history generated:`, { open, currentPrice, historyLength: history.length });
+        
+        return {
+          ...stock,
+          history,
+          realTimeInfo: rtData
+        };
+      });
+    });
+  }, [realTimeData, dataRefreshKey, generatePriceHistory]);
   
   const handleStockCardTouch = useCallback((e, stockSymbol) => {
     if (stockSymbol !== selectedStock) return;
@@ -214,14 +266,8 @@ useEffect(() => {
   
   const handleJump = () => {
     if (selectedStock) {
-      setSurferPositions(prev => ({ 
-        ...prev, 
-        [selectedStock]: { ...prev[selectedStock], jumping: true } 
-      }));
-      setTimeout(() => setSurferPositions(prev => ({ 
-        ...prev, 
-        [selectedStock]: { ...prev[selectedStock], jumping: false } 
-      })), 600);
+      setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: true } }));
+      setTimeout(() => setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: false } })), 600);
     }
   };
   
@@ -244,7 +290,7 @@ useEffect(() => {
     const canvas = canvasRefs.current[stockSymbol];
     if (!canvas) return;
     const stock = stocks.find(s => s.symbol === stockSymbol);
-    if (!stock) return;
+    if (!stock || stock.history.length === 0) return;
     const width = canvas.width;
     const height = canvas.height;
     const history = stock.history;
@@ -264,29 +310,23 @@ useEffect(() => {
     for (let i = 0; i < 25; i++) {
       const angle = (Math.random() * Math.PI) - Math.PI / 2;
       const speed = Math.random() * 8 + 6;
-      particles.push({ 
-        id: Date.now() + Math.random(), 
-        x: splashX, 
-        y: splashY, 
-        vx: Math.cos(angle) * speed, 
-        vy: Math.sin(angle) * speed - 3, 
-        life: 1, 
-        size: Math.random() * 5 + 3 
-      });
+      particles.push({ id: Date.now() + Math.random(), x: splashX, y: splashY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 3, life: 1, size: Math.random() * 5 + 3 });
     }
-    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...prev[stockSymbol], ...particles] }));
+    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...(prev[stockSymbol] || []), ...particles] }));
   }, [stocks]);
-useEffect(() => {
+  
+  useEffect(() => {
     const moveInterval = setInterval(() => {
       if (!selectedStock) return;
       setSurferPositions(prev => {
         const current = prev[selectedStock];
+        if (!current) return prev;
         let newX = current.x;
         let newY = current.y;
         let newDirection = current.direction;
         if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
         const stock = stocks.find(s => s.symbol === selectedStock);
-        if (stock && !current.jumping) {
+        if (stock && stock.history.length > 0 && !current.jumping) {
           const canvas = canvasRefs.current[selectedStock];
           if (canvas) {
             const height = canvas.height;
@@ -314,16 +354,10 @@ useEffect(() => {
             const speed = 0.08;
             newX = current.x + (deltaX / distance) * Math.min(speed, distance);
             const xDiff = newX - previousX.current[selectedStock];
-            if (xDiff > 0) { 
-              if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); 
-              newDirection = 1; 
-            }
-            else if (xDiff < 0) { 
-              if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); 
-              newDirection = -1; 
-            }
+            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
+            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
             let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
-            if (!current.jumping && stock) {
+            if (!current.jumping && stock && stock.history.length > 0) {
               const canvas = canvasRefs.current[selectedStock];
               if (canvas) {
                 const height = canvas.height;
@@ -347,7 +381,7 @@ useEffect(() => {
             setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
           }
         }
-if (keysPressed.current['ArrowLeft']) {
+        if (keysPressed.current['ArrowLeft']) {
           const oldX = newX;
           newX = Math.max(0.05, newX - 0.02);
           if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
@@ -361,14 +395,8 @@ if (keysPressed.current['ArrowLeft']) {
           if (newX > oldX) newDirection = 1;
           setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
-        if (keysPressed.current['ArrowUp']) { 
-          newY = Math.max(current.hasRocket ? -0.2 : 0.5, newY - 0.02); 
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
-        }
-        if (keysPressed.current['ArrowDown']) { 
-          newY = Math.min(1.5, newY + 0.02); 
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); 
-        }
+        if (keysPressed.current['ArrowUp']) { newY = Math.max(current.hasRocket ? -0.2 : 0.5, newY - 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
         previousX.current[selectedStock] = newX;
         return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
       });
@@ -381,7 +409,7 @@ if (keysPressed.current['ArrowLeft']) {
       stocks.forEach(stock => {
         const surferPos = surferPositions[stock.symbol];
         const canvas = canvasRefs.current[stock.symbol];
-        if (!canvas || !surferPos) return;
+        if (!canvas || !surferPos || stock.history.length === 0) return;
         const width = canvas.width;
         const height = canvas.height;
         const history = stock.history;
@@ -400,62 +428,27 @@ if (keysPressed.current['ArrowLeft']) {
         for (let i = 0; i < 2; i++) {
           const spreadAngle = (Math.random() - 0.5) * Math.PI / 3;
           const speed = Math.random() * 3 + 2;
-          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...prev[stock.symbol], {
-            id: Date.now() + Math.random(), 
-            x: surferX, 
-            y: surferY,
-            vx: Math.cos(Math.PI + spreadAngle) * speed, 
-            vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
-            life: 1, 
-            size: Math.random() * 3 + 2
+          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...(prev[stock.symbol] || []), {
+            id: Date.now() + Math.random(), x: surferX, y: surferY,
+            vx: Math.cos(Math.PI + spreadAngle) * speed, vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
+            life: 1, size: Math.random() * 3 + 2
           }].slice(-30) }));
         }
       });
     }, 50);
     return () => clearInterval(trailInterval);
   }, [stocks, surferPositions]);
-useEffect(() => {
+  
+  useEffect(() => {
     const newUnlocked = [...unlockedChars];
-    if (streak >= 5 && !newUnlocked.includes('gohan')) { 
-      newUnlocked.push('gohan'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
-    if (score >= 1000 && !newUnlocked.includes('piccolo')) { 
-      newUnlocked.push('piccolo'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
-    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { 
-      newUnlocked.push('trunks'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
-    if (streak >= 10 && !newUnlocked.includes('krillin')) { 
-      newUnlocked.push('krillin'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
-    if (streak >= 20 && !newUnlocked.includes('dolphin')) { 
-      newUnlocked.push('dolphin'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
-    if (score >= 5000 && !newUnlocked.includes('cat')) { 
-      newUnlocked.push('cat'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
-    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { 
-      newUnlocked.push('unicorn'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
-    if (streak >= 15 && !newUnlocked.includes('wolf')) { 
-      newUnlocked.push('wolf'); 
-      setCelebration(true); 
-      setTimeout(() => setCelebration(false), 2000); 
-    }
+    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
     setUnlockedChars(newUnlocked);
   }, [streak, score, powerUpCount, unlockedChars]);
   
@@ -465,17 +458,10 @@ useEffect(() => {
       if (Math.random() > 0.3) {
         setStreak(s => {
           const newStreak = s + 1;
-          if (newStreak % 5 === 0) { 
-            setMultiplier(m => Math.min(m + 0.5, 5)); 
-            setCelebration(true); 
-            setTimeout(() => setCelebration(false), 1500); 
-          }
+          if (newStreak % 5 === 0) { setMultiplier(m => Math.min(m + 0.5, 5)); setCelebration(true); setTimeout(() => setCelebration(false), 1500); }
           return newStreak;
         });
-      } else { 
-        setStreak(0); 
-        setMultiplier(1); 
-      }
+      } else { setStreak(0); setMultiplier(1); }
       if (Math.random() > 0.85) {
         setPowerUp(['speed', 'glow', 'foam', 'multiplier'][Math.floor(Math.random() * 4)]);
         setPowerUpCount(c => c + 1);
@@ -484,8 +470,9 @@ useEffect(() => {
     }, 2000);
     return () => clearInterval(interval);
   }, [multiplier]);
-const drawWave = useCallback((canvas, stock, time) => {
-    if (!canvas) return;
+  
+  const drawWave = useCallback((canvas, stock, time) => {
+    if (!canvas || stock.history.length === 0) return;
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
@@ -510,12 +497,7 @@ const drawWave = useCallback((canvas, stock, time) => {
     }
     let crestIndex = 0;
     let highestY = height;
-    points.forEach((point, i) => { 
-      if (point.y < highestY) { 
-        highestY = point.y; 
-        crestIndex = i; 
-      } 
-    });
+    points.forEach((point, i) => { if (point.y < highestY) { highestY = point.y; crestIndex = i; } });
     for (let layer = 0; layer < 3; layer++) {
       ctx.beginPath();
       points.forEach((point, i) => {
@@ -541,34 +523,23 @@ const drawWave = useCallback((canvas, stock, time) => {
     for (let i = Math.max(0, crestIndex - 3); i < Math.min(points.length, crestIndex + 6); i++) {
       for (let j = 0; j < 3; j++) {
         ctx.beginPath();
-        ctx.arc(
-          points[i].x + (Math.random() - 0.5) * 15, 
-          points[i].y - Math.random() * 15, 
-          Math.random() * 2 + 1, 
-          0, 
-          Math.PI * 2
-        );
+        ctx.arc(points[i].x + (Math.random() - 0.5) * 15, points[i].y - Math.random() * 15, Math.random() * 2 + 1, 0, Math.PI * 2);
         ctx.fill();
       }
     }
-const surferPos = surferPositions[stock.symbol];
+    const surferPos = surferPositions[stock.symbol];
+    if (!surferPos) return;
     const surferIndex = Math.floor(surferPos.x * (points.length - 1));
     const surferPoint = points[surferIndex];
     const prevPoint = points[Math.max(0, surferIndex - 1)];
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
     ctx.save();
-    ctx.translate(
-      surferPoint.x, 
-      surferPoint.y - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8
-    );
+    ctx.translate(surferPoint.x, surferPoint.y - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8);
     ctx.rotate(angle);
     const shouldFlip = char?.invertDirection ? (surferPos.direction === -1) : (surferPos.direction === 1);
     if (shouldFlip) ctx.scale(-1, 1);
-    if (stock.symbol === selectedStock) { 
-      ctx.shadowBlur = 25; 
-      ctx.shadowColor = '#00FF00'; 
-    }
+    if (stock.symbol === selectedStock) { ctx.shadowBlur = 25; ctx.shadowColor = '#00FF00'; }
     ctx.font = '32px Arial';
     ctx.fillText(char?.emoji || '🏄‍♂️', -16, 8);
     ctx.restore();
@@ -612,31 +583,14 @@ const surferPos = surferPositions[stock.symbol];
       setWaterTrails(prev => {
         const updated = {};
         Object.keys(prev).forEach(symbol => {
-          updated[symbol] = prev[symbol]
-            .map(p => ({ 
-              ...p, 
-              x: p.x + p.vx, 
-              y: p.y + p.vy, 
-              vy: p.vy + 0.2, 
-              life: p.life - 0.02 
-            }))
-            .filter(p => p.life > 0);
+          updated[symbol] = prev[symbol].map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.2, life: p.life - 0.02 })).filter(p => p.life > 0);
         });
         return updated;
       });
       setCutbackSplashes(prev => {
         const updated = {};
         Object.keys(prev).forEach(symbol => {
-          updated[symbol] = prev[symbol]
-            .map(p => ({ 
-              ...p, 
-              x: p.x + p.vx, 
-              y: p.y + p.vy, 
-              vy: p.vy + 0.3, 
-              vx: p.vx * 0.98, 
-              life: p.life - 0.015 
-            }))
-            .filter(p => p.life > 0);
+          updated[symbol] = prev[symbol].map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.3, vx: p.vx * 0.98, life: p.life - 0.015 })).filter(p => p.life > 0);
         });
         return updated;
       });
@@ -646,25 +600,22 @@ const surferPos = surferPositions[stock.symbol];
     animate();
     return () => cancelAnimationFrame(animationFrame);
   }, [stocks, drawWave]);
-const selectCharacter = useCallback((stockSymbol, charId) => {
-    if (unlockedChars.includes(charId)) {
-      setSelectedChars(prev => ({ ...prev, [stockSymbol]: charId }));
-    }
+  
+  const selectCharacter = useCallback((stockSymbol, charId) => {
+    if (unlockedChars.includes(charId)) setSelectedChars(prev => ({ ...prev, [stockSymbol]: charId }));
   }, [unlockedChars]);
   
   const getCharacter = useCallback((charId) => characters.find(c => c.id === charId), [characters]);
 
-  const handleAddStock = useCallback(async () => {
+  const handleAddStock = useCallback(() => {
     if (newStock.symbol) {
-      setIsLoadingData(true);
-      const history = await fetchStockData(newStock.symbol.toUpperCase());
-      
+      const basePrice = Math.random() * 200 + 50;
       const newStockData = {
         symbol: newStock.symbol.toUpperCase(),
         color: newStock.color,
-        history: history,
+        history: generatePriceHistory(basePrice, 0.03, 50),
         selectedChar: 'goku',
-        lastUpdated: Date.now()
+        useRealData: true
       };
       
       setStocks(prev => [...prev, newStockData]);
@@ -680,9 +631,10 @@ const selectCharacter = useCallback((stockSymbol, charId) => {
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
       setShowAddForm(false);
-      setIsLoadingData(false);
+      
+      setTimeout(() => fetchAllStockData(true), 100);
     }
-  }, [newStock, colors, stocks.length, fetchStockData]);
+  }, [newStock, colors, stocks.length, generatePriceHistory, fetchAllStockData]);
 
   const removeStock = useCallback((symbol) => {
     setStocks(prev => prev.filter(s => s.symbol !== symbol));
@@ -716,12 +668,34 @@ const selectCharacter = useCallback((stockSymbol, charId) => {
       delete newTargets[symbol];
       return newTargets;
     });
+    setRealTimeData(prev => {
+      const newData = { ...prev };
+      delete newData[symbol];
+      return newData;
+    });
+    setApiErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[symbol];
+      return newErrors;
+    });
     if (selectedStock === symbol) {
       setSelectedStock(stocks[0]?.symbol || null);
     }
   }, [selectedStock, stocks]);
-return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
+  
+  const toggleStockDataMode = useCallback((symbol) => {
+    setStocks(prev => prev.map(stock => 
+      stock.symbol === symbol 
+        ? { ...stock, useRealData: !stock.useRealData }
+        : stock
+    ));
+    setTimeout(() => {
+      setDataRefreshKey(prev => prev + 1);
+    }, 100);
+  }, []);
+
+  return (
+<div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
@@ -730,11 +704,6 @@ return (
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf! Tap jump button to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
           </p>
-          {isLoadingData && (
-            <p className="text-yellow-300 text-sm mt-2 animate-pulse">
-              🔄 Updating stock data...
-            </p>
-          )}
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -810,7 +779,8 @@ return (
             </div>
           </div>
         </div>
-<div className="text-center mb-6">
+        
+        <div className="text-center mb-6">
           <button
             onClick={() => setShowMission(!showMission)}
             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 mx-auto transition-all shadow-lg"
@@ -820,33 +790,137 @@ return (
           </button>
         </div>
         
-        {showMission && (
-          <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
+        <div className="text-center mb-6">
+          <button
+            onClick={() => setShowDataControls(!showDataControls)}
+            className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white px-6 py-2 rounded-full flex items-center gap-2 mx-auto transition-all shadow-lg"
+          >
+            <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+            {showDataControls ? 'Hide' : 'Show'} Data Controls
+          </button>
+        </div>
+        
+        {showDataControls && (
+          <div className="mb-6 bg-gradient-to-br from-green-500 to-blue-600 text-white rounded-3xl p-6 shadow-2xl">
             <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
-              🌊 Our Mission 🏄‍♂️
+              📊 Data Controls
             </h2>
-            <div className="space-y-3 text-base">
-              <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
-              <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-              <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-              <p className="text-sm bg-white/20 rounded-lg p-3 mt-4">
-                📊 <strong>Real Stock Data:</strong> Waves now show actual stock prices from the past 30 days, updated every hour!
-              </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => fetchAllStockData(true)}
+                disabled={isRefreshing}
+                className={`w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2 ${
+                  isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh All Data Now'}
+              </button>
+              
+              {Object.keys(apiErrors).length > 0 && (
+                <div className="bg-red-500/30 border-2 border-red-400 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-white font-bold mb-2">
+                    <AlertCircle size={16} />
+                    API Errors Detected
+                  </div>
+                  <div className="text-sm text-white/90 space-y-1">
+                    {Object.entries(apiErrors).map(([symbol, error]) => (
+                      <div key={symbol}>
+                        {symbol}: {error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                <h3 className="font-bold mb-2">Toggle Data Mode Per Stock:</h3>
+                <div className="space-y-2">
+                  {stocks.map(stock => (
+                    <div key={stock.symbol} className="flex items-center justify-between">
+                      <span className="font-medium">{stock.symbol}</span>
+                      <button
+                        onClick={() => toggleStockDataMode(stock.symbol)}
+                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                          stock.useRealData 
+                            ? 'bg-green-500 hover:bg-green-600 text-white' 
+                            : 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                        }`}
+                      >
+                        {stock.useRealData ? '📡 Live Data' : '🎲 Mock Data'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="text-sm text-white/80">
+                <p>• Live Data: Real prices from Finnhub/Alpha Vantage APIs</p>
+                <p>• Mock Data: Generated random prices for testing</p>
+                <p>• Auto-refresh: Every 60 seconds</p>
+                <p>• Manual refresh: Updates all stocks immediately</p>
+              </div>
             </div>
           </div>
         )}
+        
+       {showMission && (
+  <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
+    <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
+      🌊 Our Mission 🏄‍♂️
+    </h2>
+    <div className="space-y-3 text-base">
+      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
+      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+      <p>NEW: Real-time market data from Finnhub & Alpha Vantage APIs! 📡</p>
+    </div>
+  </div>
+)}
 
-        {celebration && (
-          <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
-            <div className="text-8xl animate-bounce text-center">🎉✨🏆✨🎉</div>
+{celebration && (
+  <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
+  <div className="text-8xl animate-bounce text-center">🎉✨🏆✨🎉</div>
+</div>
+)}
+        
+        <div className="bg-white/10 backdrop-blur-md rounded-lg p-3 mb-6 border border-white/20">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-blue-200">
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+              <span>Live Market Data</span>
+              {isRefreshing && <span className="text-yellow-300">(Updating...)</span>}
+            </div>
+            <div className="text-blue-300">
+              Auto-refresh: 60s
+            </div>
           </div>
-        )}
+          {Object.keys(realTimeData).length > 0 && (
+            <div className="mt-2 text-xs text-blue-300 flex flex-wrap gap-2">
+              {Object.entries(realTimeData).map(([symbol, data]) => (
+                <span key={symbol} className="flex items-center gap-1">
+                  {data.isLive ? (
+                    <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                  ) : (
+                    <AlertCircle size={10} className="text-yellow-400" />
+                  )}
+                  {symbol}: {data.source}
+                </span>
+              ))}
+            </div>
+          )}
+          {Object.keys(apiErrors).length > 0 && (
+            <div className="mt-2 text-xs text-red-300 flex items-center gap-1">
+              <AlertCircle size={12} />
+              {Object.keys(apiErrors).length} stock(s) using fallback data
+            </div>
+          )}
+        </div>
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {stocks.map((stock) => {
             const char = getCharacter(selectedChars[stock.symbol]);
-            const startPrice = stock.history[0];
-            const endPrice = stock.history[stock.history.length - 1];
-            const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
+            const startPrice = stock.history[0] || 0;
+            const endPrice = stock.history[stock.history.length - 1] || 0;
+            const priceChange = startPrice > 0 ? ((endPrice - startPrice) / startPrice * 100).toFixed(2) : '0.00';
             const isSelected = selectedStock === stock.symbol;
             
             return (
@@ -854,8 +928,8 @@ return (
                 key={stock.symbol}
                 ref={el => cardRefs.current[stock.symbol] = el}
                 onClick={() => setSelectedStock(stock.symbol)}
-                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
-                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol, cardRefs.current[stock.symbol])}
+                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
                 onTouchEnd={handleCanvasTouchEnd}
                 className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative ${
                   isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
@@ -885,9 +959,37 @@ return (
                         <div className={`text-sm font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
                         </div>
+                        {stock.realTimeInfo && (
+                          <div className="text-xs text-blue-200 flex items-center gap-1">
+                            {stock.realTimeInfo.isLive ? (
+                              <span className="flex items-center gap-1">
+                                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                                {stock.realTimeInfo.source}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <AlertCircle size={10} />
+                                {stock.realTimeInfo.source}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {!stock.useRealData && (
+                          <div className="text-xs text-yellow-300 flex items-center gap-1">
+                            🎲 Mock Mode
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
+                  {stock.realTimeInfo && (
+                    <div className="text-xs text-blue-200 flex items-center justify-between">
+                      <span>Current: ${stock.realTimeInfo.currentPrice.toFixed(2)}</span>
+                      <span className="text-blue-300">
+                        Updated: {new Date(stock.realTimeInfo.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 
                 <canvas
@@ -897,7 +999,8 @@ return (
                   className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none"
                   style={{ touchAction: 'none' }}
                 />
-<div className="border-t border-white/20 pt-3">
+                
+                <div className="border-t border-white/20 pt-3">
                   <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
                   <div className="flex gap-2 flex-wrap">
                     {characters.map(char => {
@@ -935,7 +1038,8 @@ return (
             );
           })}
         </div>
-{!showAddForm ? (
+        
+        {!showAddForm ? (
           <button
             onClick={() => setShowAddForm(true)}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition-colors flex items-center justify-center gap-2 mb-6"
@@ -971,10 +1075,9 @@ return (
             <div className="flex gap-4">
               <button
                 onClick={handleAddStock}
-                disabled={isLoadingData}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition-colors"
               >
-                {isLoadingData ? 'Loading...' : 'Add Stock'}
+                Add Stock
               </button>
               <button
                 onClick={() => setShowAddForm(false)}
@@ -1008,7 +1111,6 @@ return (
         </div>
       </div>
       
-      {/* Mobile Jump Button */}
       {isMobile && (
         <div className="fixed bottom-6 right-6 z-50">
           <button
