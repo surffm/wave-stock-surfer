@@ -1061,13 +1061,40 @@ const WaveStockSurfer = () => {
                 <span>← Selected (click wave)</span>
               </div>
             </div>
+          </div>
+        </div>
+        
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('trending');
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Info size={20} />
+              Menu
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('add');
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Wave
+            </button>
+          </div>
+        </div>
         
         {showMenu && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
-                  onClick={() => setActiveMenuTab('trending')}
+                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
@@ -1077,7 +1104,7 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('add')}
+                  onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'add' 
                       ? 'bg-blue-600 text-white' 
@@ -1087,7 +1114,7 @@ const WaveStockSurfer = () => {
                   ➕ Add Waves
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('faq')}
+                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
@@ -1097,7 +1124,7 @@ const WaveStockSurfer = () => {
                   ❓ FAQ
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('mission')}
+                  onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
@@ -1276,6 +1303,51 @@ const WaveStockSurfer = () => {
                 }`}
                 style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockUp(stock.symbol);
+                      }}
+                      disabled={index === 0}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === 0 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockDown(stock.symbol);
+                      }}
+                      disabled={index === stocks.length - 1}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === stocks.length - 1 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeStock(stock.symbol);
+                    }}
+                    className="text-white/50 hover:text-white transition-colors"
+                    title="Remove stock"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -1300,53 +1372,7 @@ const WaveStockSurfer = () => {
                 />
                 
                 <div className="border-t border-white/20 pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-blue-200 text-xs">Select Surfer:</div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            moveStockUp(stock.symbol);
-                          }}
-                          disabled={index === 0}
-                          className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                            index === 0 
-                              ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                              : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                          }`}
-                          title="Move up"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            moveStockDown(stock.symbol);
-                          }}
-                          disabled={index === stocks.length - 1}
-                          className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                            index === stocks.length - 1 
-                              ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                              : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                          }`}
-                          title="Move down"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeStock(stock.symbol);
-                        }}
-                        className="text-white/50 hover:text-white transition-colors"
-                        title="Remove stock"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
+                  <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
                   <div className="flex gap-2 flex-wrap">
                     {characters.map(char => {
                       const isUnlocked = unlockedChars.includes(char.id);
@@ -1462,28 +1488,3 @@ const WaveStockSurfer = () => {
 };
 
 export default WaveStockSurfer;
-        
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <button
-              onClick={() => {
-                setShowMenu(true);
-                setActiveMenuTab('trending');
-              }}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
-            >
-              <Info size={20} />
-              Menu
-            </button>
-            <button
-              onClick={() => {
-                setShowMenu(true);
-                setActiveMenuTab('add');
-              }}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
-            >
-              <Plus size={20} />
-              Add Wave
-            </button>
-          </div>
-        </div>
