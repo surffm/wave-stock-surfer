@@ -9,10 +9,12 @@ const WaveStockSurfer = () => {
   const [activeMenuTab, setActiveMenuTab] = useState('trending');
   const [powerUp, setPowerUp] = useState(null);
   const [celebration, setCelebration] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
   const [isMobile, setIsMobile] = useState(false);
   const [realPrices, setRealPrices] = useState({});
   const [priceChanges, setPriceChanges] = useState({});
+  const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   
   const audioContextRef = useRef(null);
@@ -237,6 +239,14 @@ const WaveStockSurfer = () => {
     }
   }, [soundEnabled]);
   
+  const playScoreSound = useCallback(() => {
+    return;
+  }, []);
+  
+  const playStreakSound = useCallback(() => {
+    return;
+  }, []);
+  
   const playCelebrationSound = useCallback(() => {
     if (!soundEnabled || !audioContextRef.current) return;
 
@@ -274,6 +284,10 @@ const WaveStockSurfer = () => {
       console.error('Sound playback error:', error);
     }
   }, [soundEnabled]);
+
+  const playPowerUpSound = useCallback(() => {
+    return;
+  }, []);
   
   const toggleSound = useCallback(() => {
     if (!soundEnabled) {
@@ -297,6 +311,7 @@ const WaveStockSurfer = () => {
   }, [soundEnabled, initAudio]);
   
   const fetchStockPrices = useCallback(async () => {
+    setFetchingPrices(true);
     const newPrices = {};
     const newChanges = {};
     
@@ -341,6 +356,7 @@ const WaveStockSurfer = () => {
     
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
+    setFetchingPrices(false);
   }, [stocks]);
   
   useEffect(() => {
@@ -391,6 +407,8 @@ const WaveStockSurfer = () => {
     touchingRef.current = false;
     currentTouchStock.current = null;
   }, []);
+  
+  const jumpTimeoutRef = useRef(null);
   
   const handleJump = useCallback(() => {
     if (selectedStock) {
@@ -524,6 +542,87 @@ const WaveStockSurfer = () => {
             const history = stock.history;
             const minPrice = Math.min(...history);
             const maxPrice = Math.max(...history);
+            const priceRange = maxPrice - minPrice || 1;
+            const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+            const historyIndex = current.x * (history.length - 1);
+            const index = Math.floor(historyIndex);
+            const nextIndex = Math.min(index + 1, history.length - 1);
+            const t = historyIndex - index;
+            const price = history[index] * (1 - t) + history[nextIndex] * t;
+            const waveY = normalizePrice(price) + Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+            newY = Math.max(waveNormalizedY, newY);
+          }
+        }
+        const target = targetPositions[selectedStock];
+        if (target) {
+          const deltaX = target.x - current.x;
+          const deltaY = target.y - current.y;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          if (distance > 0.005) {
+            const speed = 0.08;
+            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
+            const xDiff = newX - previousX.current[selectedStock];
+            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
+            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
+            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
+            if (!current.jumping && stock) {
+              const canvas = canvasRefs.current[selectedStock];
+              if (canvas) {
+                const height = canvas.height;
+                const history = stock.history;
+                const minPrice = Math.min(...history);
+                const maxPrice = Math.max(...history);
+                const priceRange = maxPrice - minPrice || 1;
+                const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+                const historyIndex = newX * (history.length - 1);
+                const index = Math.floor(historyIndex);
+                const nextIndex = Math.min(index + 1, history.length - 1);
+                const t = historyIndex - index;
+                const price = history[index] * (1 - t) + history[nextIndex] * t;
+                const waveY = normalizePrice(price) + Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
+                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+                targetY = Math.max(waveNormalizedY, targetY);
+              }
+            }
+            newY = targetY;
+          } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
+            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+          }
+        }
+        
+        if (keysPressed.current['ArrowLeft']) {
+          const oldX = newX;
+          newX = Math.max(0.05, newX - 0.02);
+          if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX < oldX) newDirection = -1;
+        }
+        if (keysPressed.current['ArrowRight']) {
+          const oldX = newX;
+          newX = Math.min(0.95, newX + 0.02);
+          if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX > oldX) newDirection = 1;
+        }
+        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); }
+        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); }
+        previousX.current[selectedStock] = newX;
+        return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
+      });
+    }, 16);
+    return () => clearInterval(moveInterval);
+  }, [selectedStock, targetPositions, stocks, createCutbackSplash]);
+  
+  useEffect(() => {
+    const trailInterval = setInterval(() => {
+      stocks.forEach(stock => {
+        const surferPos = surferPositions[stock.symbol];
+        const canvas = canvasRefs.current[stock.symbol];
+        if (!canvas || !surferPos) return;
+        const width = canvas.width;
+        const height = canvas.height;
+        const history = stock.history;
+        const minPrice = Math.min(...history);
+        const maxPrice = Math.max(...history);
         const priceRange = maxPrice - minPrice || 1;
         const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
         const historyIndex = surferPos.x * (history.length - 1);
@@ -550,52 +649,38 @@ const WaveStockSurfer = () => {
   
   useEffect(() => {
     const newUnlocked = [...unlockedChars];
-    let updated = false;
-    
-    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); updated = true; }
-    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); updated = true; }
-    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); updated = true; }
-    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); updated = true; }
-    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); updated = true; }
-    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); updated = true; }
-    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); updated = true; }
-    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); updated = true; }
-    
-    if (updated) {
-      setUnlockedChars(newUnlocked);
-      setCelebration(true);
-      playCelebrationSound();
-      setTimeout(() => setCelebration(false), 2000);
-    }
+    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    setUnlockedChars(newUnlocked);
   }, [streak, score, powerUpCount, unlockedChars, playCelebrationSound]);
   
   useEffect(() => {
     const interval = setInterval(() => {
       setScore(s => s + (Math.floor(Math.random() * 50) + 20) * multiplier);
-      
+      playScoreSound();
       if (Math.random() > 0.3) {
         setStreak(s => {
           const newStreak = s + 1;
-          if (newStreak % 5 === 0) { 
-            setMultiplier(m => Math.min(m + 0.5, 5)); 
-            setCelebration(true); 
-            setTimeout(() => setCelebration(false), 1500); 
-          }
+          if (newStreak % 5 === 0) { setMultiplier(m => Math.min(m + 0.5, 5)); setCelebration(true); playStreakSound(); setTimeout(() => setCelebration(false), 1500); }
+          else { playStreakSound(); }
           return newStreak;
         });
-      } else { 
-        setStreak(0); 
-        setMultiplier(1); 
-      }
-      
+      } else { setStreak(0); setMultiplier(1); }
       if (Math.random() > 0.85) {
         setPowerUp(['speed', 'glow', 'foam', 'multiplier'][Math.floor(Math.random() * 4)]);
         setPowerUpCount(c => c + 1);
+        playPowerUpSound();
         setTimeout(() => setPowerUp(null), 3000);
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [multiplier]);
+  }, [multiplier, playScoreSound, playStreakSound, playPowerUpSound]);
   
   const drawWave = useCallback((canvas, stock, time) => {
     if (!canvas) return;
@@ -813,6 +898,7 @@ const WaveStockSurfer = () => {
       setTargetPositions(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: null }));
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
+      setShowAddForm(false);
     }
   }, [newStock, colors, stocks.length, generatePriceHistory]);
 
@@ -1002,84 +1088,403 @@ const WaveStockSurfer = () => {
             </button>
           </div>
         </div>
-            const priceRange = maxPrice - minPrice || 1;
-            const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
-            const historyIndex = current.x * (history.length - 1);
-            const index = Math.floor(historyIndex);
-            const nextIndex = Math.min(index + 1, history.length - 1);
-            const t = historyIndex - index;
-            const price = history[index] * (1 - t) + history[nextIndex] * t;
-            const waveY = normalizePrice(price) + Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-            newY = Math.max(waveNormalizedY, newY);
-          }
-        }
-        const target = targetPositions[selectedStock];
-        if (target) {
-          const deltaX = target.x - current.x;
-          const deltaY = target.y - current.y;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-          if (distance > 0.005) {
-            const speed = 0.08;
-            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
-            const xDiff = newX - previousX.current[selectedStock];
-            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
-            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
-            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
-            if (!current.jumping && stock) {
-              const canvas = canvasRefs.current[selectedStock];
-              if (canvas) {
-                const height = canvas.height;
-                const history = stock.history;
-                const minPrice = Math.min(...history);
-                const maxPrice = Math.max(...history);
-                const priceRange = maxPrice - minPrice || 1;
-                const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
-                const historyIndex = newX * (history.length - 1);
-                const index = Math.floor(historyIndex);
-                const nextIndex = Math.min(index + 1, history.length - 1);
-                const t = historyIndex - index;
-                const price = history[index] * (1 - t) + history[nextIndex] * t;
-                const waveY = normalizePrice(price) + Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
-                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-                targetY = Math.max(waveNormalizedY, targetY);
-              }
-            }
-            newY = targetY;
-          } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
-            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-          }
-        }
         
-        if (keysPressed.current['ArrowLeft']) {
-          const oldX = newX;
-          newX = Math.max(0.05, newX - 0.02);
-          if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
-          if (newX < oldX) newDirection = -1;
-        }
-        if (keysPressed.current['ArrowRight']) {
-          const oldX = newX;
-          newX = Math.min(0.95, newX + 0.02);
-          if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
-          if (newX > oldX) newDirection = 1;
-        }
-        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); }
-        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); }
-        previousX.current[selectedStock] = newX;
-        return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
-      });
-    }, 16);
-    return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, stocks, createCutbackSplash]);
-  
-  useEffect(() => {
-    const trailInterval = setInterval(() => {
-      stocks.forEach(stock => {
-        const surferPos = surferPositions[stock.symbol];
-        const canvas = canvasRefs.current[stock.symbol];
-        if (!canvas || !surferPos) return;
-        const width = canvas.width;
-        const height = canvas.height;
-        const history = stock.history;
-        const minPrice = Math.min(...history);
-        const maxPrice = Math.max(...history);
+        {showMenu && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex border-b border-white/20">
+                <button
+                  onClick={() => setActiveMenuTab('trending')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'trending' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🔥 Trending
+                </button>
+                <button
+                  onClick={() => setActiveMenuTab('add')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'add' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  ➕ Add Waves
+                </button>
+                <button
+                  onClick={() => setActiveMenuTab('faq')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'faq' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  ❓ FAQ
+                </button>
+                <button
+                  onClick={() => setActiveMenuTab('mission')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'mission' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🌊 Mission
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                {activeMenuTab === 'trending' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
+                    <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {trendingStocks.map(stock => {
+                        const isAdded = stocks.some(s => s.symbol === stock.symbol);
+                        return (
+                          <button
+                            key={stock.symbol}
+                            onClick={() => {
+                              if (!isAdded) {
+                                addTrendingStock(stock);
+                                setShowMenu(false);
+                              }
+                            }}
+                            disabled={isAdded}
+                            className={`p-4 rounded-lg border-2 transition-all text-left ${
+                              isAdded 
+                                ? 'bg-white/5 border-green-400 cursor-default' 
+                                : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-2xl font-bold text-white">{stock.symbol}</span>
+                              {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
+                            </div>
+                            <div className="text-sm text-blue-200">{stock.name}</div>
+                            <div 
+                              className="w-full h-2 rounded-full mt-2" 
+                              style={{ backgroundColor: stock.color }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'add' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">➕ Add Your Own Wave</h2>
+                    <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                      <div className="grid grid-cols-1 gap-4 mb-4">
+                        <input
+                          type="text"
+                          placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                          value={newStock.symbol}
+                          onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                          className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
+                        />
+                      </div>
+                      <div className="mb-4">
+                        <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {colors.map(color => (
+                            <button
+                              key={color}
+                              onClick={() => setNewStock({ ...newStock, color })}
+                              className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          handleAddStock();
+                          setShowMenu(false);
+                        }}
+                        disabled={!newStock.symbol}
+                        className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        🌊 Add Wave
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'faq' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
+                    <div className="space-y-4 text-blue-100">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I play?</h3>
+                        <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What are the water effects?</h3>
+                        <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I spin?</h3>
+                        <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I unlock characters?</h3>
+                        <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Are these real stock prices?</h3>
+                        <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
+                        <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
+                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'mission' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
+                      🌊 Our Mission 🏄‍♂️
+                    </h2>
+                    <div className="space-y-3 text-blue-100 text-base">
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
+                      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+                      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+                      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="border-t border-white/20 p-4 bg-black/20">
+                <button
+                  onClick={() => setShowMenu(false)}
+                  className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                >
+                  Close Menu
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {celebration && (
+          <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
+            <div className="text-2xl animate-bounce text-center">🎉✨🏆✨🎉</div>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {stocks.map((stock, index) => {
+            const char = getCharacter(selectedChars[stock.symbol]);
+            const isSelected = selectedStock === stock.symbol;
+            
+            return (
+              <div 
+                key={stock.symbol}
+                onClick={() => setSelectedStock(stock.symbol)}
+                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchEnd={handleCanvasTouchEnd}
+                className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative select-none ${
+                  isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
+                }`}
+                style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+              >
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockUp(stock.symbol);
+                      }}
+                      disabled={index === 0}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === 0 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockDown(stock.symbol);
+                      }}
+                      disabled={index === stocks.length - 1}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === stocks.length - 1 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeStock(stock.symbol);
+                    }}
+                    className="text-white/50 hover:text-white transition-colors"
+                    title="Remove stock"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-3xl font-bold text-white">{stock.symbol}</h3>
+                      {isSelected && <span className="text-green-400 text-sm font-bold">● ACTIVE</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{char?.emoji}</span>
+                      <div className="text-right">
+                        <div className="text-xs text-blue-300">{char?.name}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <canvas
+                  ref={el => canvasRefs.current[stock.symbol] = el}
+                  width={600}
+                  height={200}
+                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
+                  style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+                />
+                
+                <div className="border-t border-white/20 pt-3">
+                  <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {characters.map(char => {
+                      const isUnlocked = unlockedChars.includes(char.id);
+                      const isCharSelected = selectedChars[stock.symbol] === char.id;
+                      
+                      return (
+                        <button
+                          key={char.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectCharacter(stock.symbol, char.id);
+                          }}
+                          disabled={!isUnlocked}
+                          className={`
+                            relative w-12 h-12 rounded-lg flex items-center justify-center text-2xl
+                            transition-all duration-200 border-2
+                            ${isCharSelected ? 'border-blue-400 scale-110 shadow-lg' : 'border-white/20'}
+                            ${isUnlocked ? 'hover:scale-105 cursor-pointer bg-white/10' : 'opacity-40 cursor-not-allowed bg-white/5'}
+                          `}
+                          title={isUnlocked ? char.name : char.unlock}
+                        >
+                          {char.emoji}
+                          {!isUnlocked && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg text-xs">
+                              🔒
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="text-center text-blue-200 text-sm mb-6">
+          💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
+        </div>
+
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('trending');
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Info size={20} />
+              Menu
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('add');
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Wave
+            </button>
+            <button
+              onClick={toggleSound}
+              className={`px-6 py-3 rounded-full font-bold transition-all shadow-lg ${
+                soundEnabled 
+                  ? 'bg-green-500 hover:bg-green-600 text-white' 
+                  : 'bg-gray-500 hover:bg-gray-600 text-white'
+              }`}
+            >
+              {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-4 mb-6">
+          <a
+            href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
+          >
+            Donate
+          </a>
+          <a
+            href="mailto:surf.fm.official@gmail.com"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
+          >
+            Contact
+          </a>
+        </div>
+      </div>
+      
+      {isMobile && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleJump();
+            }}
+            onClick={handleJump}
+            className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform select-none"
+            style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+          >
+            ⬆️
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default WaveStockSurfer;
