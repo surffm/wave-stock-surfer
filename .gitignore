@@ -1,2 +1,6 @@
 .vercel
 .DS_Store
+.next
+dist
+build
+.vercel
