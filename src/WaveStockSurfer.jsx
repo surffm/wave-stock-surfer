@@ -66,6 +66,7 @@ const WaveStockSurfer = () => {
   const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   const touchingRef = useRef(false);
   const currentTouchStock = useRef(null);
+const spinTimers = useRef({});
   
   const initAudio = useCallback(() => {
     if (audioContextRef.current) return;
@@ -457,48 +458,50 @@ return; // mute
     currentTouchStock.current = null;
   }, []);
   
-  const handleJump = useCallback(() => {
-    if (selectedStock) {
-      setSurferPositions(prev => {
-        const current = prev[selectedStock];
-        if (current.jumping) {
-          playSpinSound();
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
-              direction: current.direction * -1,
-              spinning: true,
-              spinCount: current.spinCount + 1
-            }
-          };
-        } else {
-          playJumpSound();
-          setTimeout(() => {
-            setSurferPositions(p => ({
-              ...p,
-              [selectedStock]: {
-                ...p[selectedStock],
-                jumping: false,
-                spinning: false,
-                spinCount: 0
-              }
-            }));
-          }, 600);
-          
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
-              jumping: true,
-              spinning: false,
-              spinCount: 0
-            }
-          };
-        }
-      });
+  const handleJump = (stockSymbol) => {
+  setSurferPositions((p) => {
+    const current = p[stockSymbol] || {};
+    if (!current.jumping) {
+      return {
+        ...p,
+        [stockSymbol]: {
+          ...current,
+          jumping: true,
+          spinning: true,
+          spinCount: 1, // first spin
+        },
+      };
+    } else {
+      return {
+        ...p,
+        [stockSymbol]: {
+          ...current,
+          spinning: true,
+          spinCount: current.spinCount + 1, // stack spins
+        },
+      };
     }
-  }, [selectedStock, playJumpSound, playSpinSound]);
+  });
+
+  // clear any existing timer for this surfer
+  if (spinTimers.current[stockSymbol]) {
+    clearTimeout(spinTimers.current[stockSymbol]);
+  }
+
+  // start/reset timer to reset spinCount after short delay
+  spinTimers.current[stockSymbol] = setTimeout(() => {
+    setSurferPositions((p) => ({
+      ...p,
+      [stockSymbol]: {
+        ...p[stockSymbol],
+        jumping: false,
+        spinning: false,
+        spinCount: 0,
+      },
+    }));
+    spinTimers.current[stockSymbol] = null;
+  }, 400); // adjust delay to control how fast you need to chain
+};
   
   useEffect(() => {
     const handleKeyDown = (e) => {
