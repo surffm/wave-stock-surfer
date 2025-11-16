@@ -110,6 +110,7 @@ const WaveStockSurfer = () => {
   }, []);
   
   const playWaterSplash = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
@@ -278,6 +279,7 @@ return; // mute
   }, [soundEnabled]);
   
   const playPowerUpSound = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
