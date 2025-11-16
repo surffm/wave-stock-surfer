@@ -1094,7 +1094,7 @@ const WaveStockSurfer = () => {
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
-                  onClick={() => setActiveMenuTab('trending')}
+                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
@@ -1104,7 +1104,7 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('add')}
+                  onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'add' 
                       ? 'bg-blue-600 text-white' 
@@ -1114,7 +1114,7 @@ const WaveStockSurfer = () => {
                   ➕ Add Waves
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('faq')}
+                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
@@ -1124,7 +1124,7 @@ const WaveStockSurfer = () => {
                   ❓ FAQ
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('mission')}
+                  onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
