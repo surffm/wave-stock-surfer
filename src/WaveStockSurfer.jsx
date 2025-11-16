@@ -968,16 +968,6 @@ const WaveStockSurfer = () => {
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
           </p>
-          <button
-            onClick={toggleSound}
-            className={`mt-3 px-6 py-2 rounded-full font-bold transition-all shadow-lg ${
-              soundEnabled 
-                ? 'bg-green-500 hover:bg-green-600 text-white' 
-                : 'bg-gray-500 hover:bg-gray-600 text-white'
-            }`}
-          >
-            {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
-          </button>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
