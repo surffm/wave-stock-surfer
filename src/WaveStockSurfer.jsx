@@ -66,6 +66,7 @@ const WaveStockSurfer = () => {
   
   // Fetch real stock prices
   const fetchStockPrices = useCallback(async () => {
+    console.log('Fetching stock prices...');
     setFetchingPrices(true);
     const newPrices = {};
     const newChanges = {};
@@ -73,6 +74,7 @@ const WaveStockSurfer = () => {
     
     for (const stock of stocks) {
       try {
+        console.log(`Fetching ${stock.symbol}...`);
         // Try Finnhub first
         const finnhubResponse = await fetch(
           `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
@@ -80,6 +82,7 @@ const WaveStockSurfer = () => {
         
         if (finnhubResponse.ok) {
           const finnhubData = await finnhubResponse.json();
+          console.log(`Finnhub data for ${stock.symbol}:`, finnhubData);
           if (finnhubData.c && finnhubData.c > 0) {
             newPrices[stock.symbol] = finnhubData.c;
             newChanges[stock.symbol] = {
@@ -87,18 +90,20 @@ const WaveStockSurfer = () => {
               percent: finnhubData.dp || 0
             };
             newUpdated[stock.symbol] = new Date().toLocaleTimeString();
+            console.log(`Successfully got ${stock.symbol} price: $${finnhubData.c}`);
             continue;
           }
         }
         
         // Fallback to Alpha Vantage if Finnhub fails
-        await new Promise(resolve => setTimeout(resolve, 200)); // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
         const alphaResponse = await fetch(
           `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
         );
         
         if (alphaResponse.ok) {
           const alphaData = await alphaResponse.json();
+          console.log(`Alpha Vantage data for ${stock.symbol}:`, alphaData);
           const quote = alphaData['Global Quote'];
           if (quote && quote['05. price']) {
             newPrices[stock.symbol] = parseFloat(quote['05. price']);
@@ -107,12 +112,16 @@ const WaveStockSurfer = () => {
               percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
             };
             newUpdated[stock.symbol] = new Date().toLocaleTimeString();
+            console.log(`Successfully got ${stock.symbol} price from Alpha Vantage: $${quote['05. price']}`);
           }
         }
       } catch (error) {
         console.error(`Error fetching price for ${stock.symbol}:`, error);
       }
     }
+    
+    console.log('Final prices:', newPrices);
+    console.log('Final changes:', newChanges);
     
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
@@ -457,16 +466,43 @@ const WaveStockSurfer = () => {
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     });
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.font = 'bold 12px Arial';
-    const startPrice = history[0];
-    const endPrice = history[history.length - 1];
-    const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
-    ctx.fillText(`Start: ${startPrice.toFixed(2)}`, 10, 20);
-    ctx.fillText(`Now: ${endPrice.toFixed(2)}`, width - 120, 20);
-    ctx.fillStyle = priceChange >= 0 ? '#34D399' : '#F87171';
-    ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
-  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
+    
+    // Reset context for drawing prices
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    
+    // Display real stock prices on canvas - accessing from parent scope
+    const realPrice = realPrices[stock.symbol];
+    const change = priceChanges[stock.symbol];
+    
+    if (realPrice && change) {
+      // Draw semi-transparent background for readability
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(5, 5, 150, 70);
+      
+      // Draw current price
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText(`${realPrice.toFixed(2)}`, 15, 30);
+      
+      // Draw percentage change
+      ctx.font = 'bold 16px Arial';
+      ctx.fillStyle = change.percent >= 0 ? '#34D399' : '#F87171';
+      ctx.fillText(`${change.percent >= 0 ? '+' : ''}${change.percent.toFixed(2)}%`, 15, 52);
+      
+      // Draw dollar change
+      ctx.font = '12px Arial';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fillText(`${change.amount >= 0 ? '+' : ''}${change.amount.toFixed(2)}`, 15, 68);
+    } else {
+      // Show loading state
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(5, 5, 120, 40);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = '14px Arial';
+      ctx.fillText('Loading...', 15, 30);
+    }
+  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges]);
   
   useEffect(() => {
     let animationFrame;
@@ -574,58 +610,6 @@ const WaveStockSurfer = () => {
           </p>
         </div>
         
-        {/* Real Stock Prices Display */}
-        <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-md rounded-2xl p-4 border border-white/30 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              📈 Live Stock Prices
-            </h2>
-            <button
-              onClick={fetchStockPrices}
-              disabled={fetchingPrices}
-              className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <RefreshCw size={16} className={fetchingPrices ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {stocks.map(stock => {
-              const realPrice = realPrices[stock.symbol];
-              const change = priceChanges[stock.symbol];
-              const updated = lastUpdated[stock.symbol];
-              
-              return (
-                <div key={stock.symbol} className="bg-white/10 rounded-lg p-3 border border-white/20">
-                  <div className="text-white font-bold text-lg mb-1">{stock.symbol}</div>
-                  {realPrice ? (
-                    <>
-                      <div className="text-2xl font-bold text-blue-300">
-                        ${realPrice.toFixed(2)}
-                      </div>
-                      {change && (
-                        <div className={`text-sm font-medium ${change.percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {change.percent >= 0 ? '+' : ''}{change.percent.toFixed(2)}%
-                          <span className="text-xs ml-1">
-                            ({change.amount >= 0 ? '+' : ''}${change.amount.toFixed(2)})
-                          </span>
-                        </div>
-                      )}
-                      {updated && (
-                        <div className="text-xs text-blue-200 mt-1">
-                          Updated: {updated}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-sm text-gray-400">Loading...</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
             <div className="space-y-2">
@@ -719,7 +703,7 @@ const WaveStockSurfer = () => {
       <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
       <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
       <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-      <p>NOW WITH LIVE DATA: Real stock prices from Finnhub & Alpha Vantage! 📈📊</p>
+      <p>NOW WITH LIVE DATA: Real stock prices shown on each wave! 📈📊</p>
     </div>
   </div>
 )}
@@ -733,9 +717,6 @@ const WaveStockSurfer = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {stocks.map((stock) => {
             const char = getCharacter(selectedChars[stock.symbol]);
-            const startPrice = stock.history[0];
-            const endPrice = stock.history[stock.history.length - 1];
-            const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
             const isSelected = selectedStock === stock.symbol;
             
             return (
@@ -771,9 +752,6 @@ const WaveStockSurfer = () => {
                       <span className="text-2xl">{char?.emoji}</span>
                       <div className="text-right">
                         <div className="text-xs text-blue-300">{char?.name}</div>
-                        <div className={`text-sm font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
-                        </div>
                       </div>
                     </div>
                   </div>
