@@ -990,7 +990,7 @@ return (
 
         <div className="flex justify-center gap-4 mb-6">
           
-            href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
+            <a href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
             target="_blank"
             rel="noopener noreferrer"
             className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
@@ -998,7 +998,7 @@ return (
             Donate
           </a>
           
-            href="mailto:surf.fm.official@gmail.com"
+            <a href="mailto:surf.fm.official@gmail.com"
             className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
           >
             Contact
