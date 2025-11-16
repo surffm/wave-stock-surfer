@@ -963,7 +963,7 @@ const WaveStockSurfer = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            Stock Surfer 🌊
+            🏄‍♂️ Wave Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
@@ -1074,24 +1074,14 @@ const WaveStockSurfer = () => {
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
-                  onClick={() => setActiveMenuTab('mission')}
+                  onClick={() => setActiveMenuTab('trending')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'mission' 
+                    activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  🌊 Mission
-                </button>
-                <button
-                  onClick={() => setActiveMenuTab('faq')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'faq' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  ❓ FAQ
+                  🔥 Trending
                 </button>
                 <button
                   onClick={() => setActiveMenuTab('add')}
@@ -1104,64 +1094,63 @@ const WaveStockSurfer = () => {
                   ➕ Add Waves
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('trending')}
+                  onClick={() => setActiveMenuTab('faq')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'trending' 
+                    activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  🔥 Trending
+                  ❓ FAQ
+                </button>
+                <button
+                  onClick={() => setActiveMenuTab('mission')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'mission' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🌊 Mission
                 </button>
               </div>
               
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-                {activeMenuTab === 'mission' && (
+                {activeMenuTab === 'trending' && (
                   <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
-                      🌊 Our Mission 🏄‍♂️
-                    </h2>
-                    <div className="space-y-3 text-blue-100 text-base">
-                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
-                      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-                      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-                      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
-                    </div>
-                  </div>
-                )}
-                
-                {activeMenuTab === 'faq' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
-                    <div className="space-y-4 text-blue-100">
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I play?</h3>
-                        <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">What are the water effects?</h3>
-                        <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I spin?</h3>
-                        <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I unlock characters?</h3>
-                        <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">Are these real stock prices?</h3>
-                        <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
-                        <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
-                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
-                      </div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
+                    <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {trendingStocks.map(stock => {
+                        const isAdded = stocks.some(s => s.symbol === stock.symbol);
+                        return (
+                          <button
+                            key={stock.symbol}
+                            onClick={() => {
+                              if (!isAdded) {
+                                addTrendingStock(stock);
+                                setShowMenu(false);
+                              }
+                            }}
+                            disabled={isAdded}
+                            className={`p-4 rounded-lg border-2 transition-all text-left ${
+                              isAdded 
+                                ? 'bg-white/5 border-green-400 cursor-default' 
+                                : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-2xl font-bold text-white">{stock.symbol}</span>
+                              {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
+                            </div>
+                            <div className="text-sm text-blue-200">{stock.name}</div>
+                            <div 
+                              className="w-full h-2 rounded-full mt-2" 
+                              style={{ backgroundColor: stock.color }}
+                            />
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1208,41 +1197,52 @@ const WaveStockSurfer = () => {
                   </div>
                 )}
                 
-                {activeMenuTab === 'trending' && (
+                {activeMenuTab === 'faq' && (
                   <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
-                    <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {trendingStocks.map(stock => {
-                        const isAdded = stocks.some(s => s.symbol === stock.symbol);
-                        return (
-                          <button
-                            key={stock.symbol}
-                            onClick={() => {
-                              if (!isAdded) {
-                                addTrendingStock(stock);
-                                setShowMenu(false);
-                              }
-                            }}
-                            disabled={isAdded}
-                            className={`p-4 rounded-lg border-2 transition-all text-left ${
-                              isAdded 
-                                ? 'bg-white/5 border-green-400 cursor-default' 
-                                : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-2xl font-bold text-white">{stock.symbol}</span>
-                              {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
-                            </div>
-                            <div className="text-sm text-blue-200">{stock.name}</div>
-                            <div 
-                              className="w-full h-2 rounded-full mt-2" 
-                              style={{ backgroundColor: stock.color }}
-                            />
-                          </button>
-                        );
-                      })}
+                    <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
+                    <div className="space-y-4 text-blue-100">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I play?</h3>
+                        <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What are the water effects?</h3>
+                        <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I spin?</h3>
+                        <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I unlock characters?</h3>
+                        <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Are these real stock prices?</h3>
+                        <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
+                        <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
+                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'mission' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
+                      🌊 Our Mission 🏄‍♂️
+                    </h2>
+                    <div className="space-y-3 text-blue-100 text-base">
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
+                      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+                      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+                      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
                     </div>
                   </div>
                 )}
@@ -1380,6 +1380,16 @@ const WaveStockSurfer = () => {
             >
               <Plus size={20} />
               Add Wave
+            </button>
+            <button
+              onClick={toggleSound}
+              className={`px-6 py-3 rounded-full font-bold transition-all shadow-lg ${
+                soundEnabled 
+                  ? 'bg-green-500 hover:bg-green-600 text-white' 
+                  : 'bg-gray-500 hover:bg-gray-600 text-white'
+              }`}
+            >
+              {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
             </button>
           </div>
         </div>
