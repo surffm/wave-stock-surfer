@@ -532,10 +532,8 @@ const WaveStockSurfer = () => {
         }
         
         if (isStalling) {
-          if (Math.random() > 0.5) {
-            createCutbackSplash(selectedStock, newX, current.y);
-            newDirection = newDirection * -1;
-          }
+          createCutbackSplash(selectedStock, newX, current.y);
+          newDirection = newDirection * -1;
         }
         
         if (keysPressed.current['ArrowLeft']) {
