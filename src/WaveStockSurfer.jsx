@@ -817,7 +817,7 @@ return; // mute
     
     if (surferPos.spinCount > 0 && surferPos.jumping && stock.symbol === selectedStock) {
       ctx.save();
-      ctx.font = 'bold 24px Arial';
+      ctx.font = 'bold 18px Arial';
       ctx.fillStyle = '#FFD700';
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 4;
