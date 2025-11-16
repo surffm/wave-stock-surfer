@@ -976,7 +976,7 @@ return; // mute
             🏄‍♂️ Wave Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
-            {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and ride the wave!'}
+            {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and ride the waves!'}
           </p>
           <button
             onClick={toggleSound}
