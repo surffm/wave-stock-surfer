@@ -438,27 +438,19 @@ return; // mute
   }, []);
   
   const handleStockCardTouch = useCallback((e, stockSymbol) => {
-  if (stockSymbol !== selectedStock) return;
-  e.preventDefault();
-  const canvas = canvasRefs.current[stockSymbol];
-  if (!canvas) return;
-  const canvasRect = canvas.getBoundingClientRect();
-
-  const touches = Array.from(e.touches); // convert TouchList to array
-  const newPositions = touches.map(touch => {
-    const normalizedX = Math.max(0.05, Math.min(0.95, (touch.clientX - canvasRect.left) / canvasRect.width));
-    const normalizedY = Math.max(0.1, Math.min(1.5, (touch.clientY - canvasRect.top) / canvasRect.height));
-    return { x: normalizedX, y: normalizedY };
-  });
-
-  // For now, just use the first touch as main target, but you can extend to multiple surfers later
-  if (newPositions.length > 0) {
-    setTargetPositions(prev => ({ ...prev, [stockSymbol]: newPositions[0] }));
-  }
-
-  touchingRef.current = true;
-  currentTouchStock.current = stockSymbol;
-}, [selectedStock]);
+    if (stockSymbol !== selectedStock) return;
+    e.preventDefault();
+    const canvas = canvasRefs.current[stockSymbol];
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const normalizedX = Math.max(0.05, Math.min(0.95, (clientX - canvasRect.left) / canvasRect.width));
+    const normalizedY = Math.max(0.1, Math.min(1.5, (clientY - canvasRect.top) / canvasRect.height));
+    setTargetPositions(prev => ({ ...prev, [stockSymbol]: { x: normalizedX, y: normalizedY } }));
+    touchingRef.current = true;
+    currentTouchStock.current = stockSymbol;
+  }, [selectedStock]);
   
   const handleCanvasTouchEnd = useCallback(() => {
     touchingRef.current = false;
