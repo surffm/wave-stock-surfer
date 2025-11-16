@@ -315,12 +315,12 @@ const WaveStockSurfer = () => {
     const newPrices = {};
     const newChanges = {};
     
-    const allSymbols = [...new Set([
-      ...stocks.map(s => s.symbol),
-      ...trendingStocks.map(s => s.symbol)
-    ])];
+    // Fetch active stocks first for fast loading
+    const activeSymbols = stocks.map(s => s.symbol);
+    const trendingSymbols = trendingStocks.map(s => s.symbol).filter(s => !activeSymbols.includes(s));
     
-    for (const symbol of allSymbols) {
+    // Priority 1: Fetch active wave stocks immediately
+    for (const symbol of activeSymbols) {
       try {
         const finnhubResponse = await fetch(
           `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
@@ -334,6 +334,9 @@ const WaveStockSurfer = () => {
               amount: finnhubData.d || 0,
               percent: finnhubData.dp || 0
             };
+            // Update state immediately for active stocks
+            setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
+            setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
             continue;
           }
         }
@@ -347,11 +350,16 @@ const WaveStockSurfer = () => {
           const alphaData = await alphaResponse.json();
           const quote = alphaData['Global Quote'];
           if (quote && quote['05. price']) {
-            newPrices[symbol] = parseFloat(quote['05. price']);
-            newChanges[symbol] = {
+            const price = parseFloat(quote['05. price']);
+            const change = {
               amount: parseFloat(quote['09. change'] || 0),
               percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
             };
+            newPrices[symbol] = price;
+            newChanges[symbol] = change;
+            // Update state immediately for active stocks
+            setRealPrices(prev => ({ ...prev, [symbol]: price }));
+            setPriceChanges(prev => ({ ...prev, [symbol]: change }));
           }
         }
       } catch (error) {
@@ -359,8 +367,47 @@ const WaveStockSurfer = () => {
       }
     }
     
-    setRealPrices(newPrices);
-    setPriceChanges(newChanges);
+    // Priority 2: Fetch trending stocks in background (only if menu is open)
+    setTimeout(async () => {
+      for (const symbol of trendingSymbols) {
+        try {
+          const finnhubResponse = await fetch(
+            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+          );
+          
+          if (finnhubResponse.ok) {
+            const finnhubData = await finnhubResponse.json();
+            if (finnhubData.c && finnhubData.c > 0) {
+              setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
+              setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
+              continue;
+            }
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const alphaResponse = await fetch(
+            `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
+          );
+          
+          if (alphaResponse.ok) {
+            const alphaData = await alphaResponse.json();
+            const quote = alphaData['Global Quote'];
+            if (quote && quote['05. price']) {
+              const price = parseFloat(quote['05. price']);
+              const change = {
+                amount: parseFloat(quote['09. change'] || 0),
+                percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
+              };
+              setRealPrices(prev => ({ ...prev, [symbol]: price }));
+              setPriceChanges(prev => ({ ...prev, [symbol]: change }));
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching price for ${symbol}:`, error);
+        }
+      }
+    }, 100);
+    
     setFetchingPrices(false);
   }, [stocks, trendingStocks]);
   
