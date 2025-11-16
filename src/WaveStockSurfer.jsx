@@ -291,39 +291,41 @@ return; // mute
     const ctx = audioContextRef.current;
     const now = ctx.currentTime;
 
-    // create a delay node for echo/reverb effect
-    const delay = ctx.createDelay(5.0); // max 5s delay
-    delay.delayTime.setValueAtTime(0.6, now); // 0.6s echo
+    // Optional light delay for oceanic echo
+    const delay = ctx.createDelay(2.0);
+    delay.delayTime.setValueAtTime(0.3, now);
     const feedback = ctx.createGain();
-    feedback.gain.setValueAtTime(0.4, now); // feedback for multiple echoes
+    feedback.gain.setValueAtTime(0.25, now);
     delay.connect(feedback);
     feedback.connect(delay);
-
     delay.connect(masterGainRef.current);
 
-    const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
-    frequencies.forEach((freq, i) => {
+    // dolphin-like short whistles
+    const dolphinFrequencies = [1200, 1500, 1800, 1600, 2000]; // high-pitched whistles
+    dolphinFrequencies.forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.1, now + 1.5); // very slow ramp
+      osc.frequency.setValueAtTime(freq, now + i * 0.2);
+      // quick frequency glide like a dolphin chirp
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.3, now + 0.15 + i * 0.2);
 
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.03 / (i+1), now + 0.1); // very soft volume
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 4); // long ambient fade
+      gain.gain.setValueAtTime(0, now + i * 0.2);
+      gain.gain.linearRampToValueAtTime(0.05, now + 0.05 + i * 0.2); // small airy burst
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5 + i * 0.2);
 
       osc.connect(gain);
       gain.connect(delay); // route through delay for echo
-      osc.start(now + i * 0.3); // staggered start for floating effect
-      osc.stop(now + 4 + i * 0.3);
+      osc.start(now + i * 0.2);
+      osc.stop(now + 0.5 + i * 0.2);
     });
 
   } catch (error) {
     console.error('Sound playback error:', error);
   }
 }, [soundEnabled]);
+
 
   
   const playPowerUpSound = useCallback(() => {
