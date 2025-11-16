@@ -291,31 +291,40 @@ return; // mute
     const ctx = audioContextRef.current;
     const now = ctx.currentTime;
 
-    // base chime frequencies (slightly harmonic)
+    // create a delay node for echo/reverb effect
+    const delay = ctx.createDelay(5.0); // max 5s delay
+    delay.delayTime.setValueAtTime(0.6, now); // 0.6s echo
+    const feedback = ctx.createGain();
+    feedback.gain.setValueAtTime(0.4, now); // feedback for multiple echoes
+    delay.connect(feedback);
+    feedback.connect(delay);
+
+    delay.connect(masterGainRef.current);
+
     const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
-    
     frequencies.forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.2, now + 0.5); // slow ramp
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.1, now + 1.5); // very slow ramp
 
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.1 / (i+1), now + 0.05); // subtle volume layering
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1); // long fade out
+      gain.gain.linearRampToValueAtTime(0.03 / (i+1), now + 0.1); // very soft volume
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 4); // long ambient fade
 
       osc.connect(gain);
-      gain.connect(masterGainRef.current);
-
-      osc.start(now + i * 0.1); // slight stagger
-      osc.stop(now + 1 + i * 0.1);
+      gain.connect(delay); // route through delay for echo
+      osc.start(now + i * 0.3); // staggered start for floating effect
+      osc.stop(now + 4 + i * 0.3);
     });
+
   } catch (error) {
     console.error('Sound playback error:', error);
   }
 }, [soundEnabled]);
+
   
   const playPowerUpSound = useCallback(() => {
 return; // mute
