@@ -780,19 +780,6 @@ const WaveStockSurfer = () => {
       }
     }
     
-    if (surferPos.spinCount > 0 && surferPos.jumping && stock.symbol === selectedStock) {
-      ctx.save();
-      ctx.font = 'bold 24px Arial';
-      ctx.fillStyle = '#FFD700';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 4;
-      ctx.textAlign = 'center';
-      const counterY = surferPoint.y - 60 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8;
-      ctx.strokeText(`${surferPos.spinCount}x SPIN!`, surferPoint.x, counterY);
-      ctx.fillText(`${surferPos.spinCount}x SPIN!`, surferPoint.x, counterY);
-      ctx.restore();
-    }
-    
     (waterTrails[stock.symbol] || []).forEach(particle => {
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = '#60A5FA';
