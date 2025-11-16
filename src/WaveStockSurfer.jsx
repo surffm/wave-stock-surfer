@@ -110,32 +110,46 @@ const WaveStockSurfer = () => {
   }, []);
   
   const playWaterSplash = useCallback(() => {
-return; // mute
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
-      
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.15);
-    } catch (error) {
-      console.error('Sound playback error:', error);
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    // Create white noise buffer
+    const bufferSize = ctx.sampleRate * 0.1; // very short burst
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.6; // louder than ocean noise
     }
-  }, [soundEnabled]);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    // Filter to make it sound like splashing water
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1500, now); // splash is brighter than ocean background
+    filter.Q.value = 1.2;
+
+    // Smooth fade-out
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGainRef.current);
+
+    noise.start(now);
+    noise.stop(now + 0.25);
+  } catch (error) {
+    console.error("Water splash playback error:", error);
+  }
+}, [soundEnabled]);
+
   
   const playJumpSound = useCallback(() => {
     if (!soundEnabled || !audioContextRef.current) return;
