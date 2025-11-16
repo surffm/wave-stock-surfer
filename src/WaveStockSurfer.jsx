@@ -293,24 +293,32 @@ return; // mute
 
     const rand = (min, max) => Math.random() * (max - min) + min;
 
-    // We'll play a few tiny coin pings quickly
-    for (let i = 0; i < 3; i++) {
+    // Random number of mini coins per celebration
+    const coinCount = Math.floor(rand(3, 7));
+    let timeOffset = 0;
+
+    for (let i = 0; i < coinCount; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      osc.type = 'triangle'; // soft, pleasant ping
-      const baseFreq = rand(800, 1200); // quick high-frequency ping
-      osc.frequency.setValueAtTime(baseFreq, now + i * 0.05);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * rand(1.2, 1.5), now + 0.05 + i * 0.05);
+      // Choose wave type randomly for texture variety
+      const waveTypes = ['triangle', 'sine', 'square'];
+      osc.type = waveTypes[Math.floor(rand(0, waveTypes.length))];
 
-      gain.gain.setValueAtTime(0.03, now + i * 0.05); // very soft
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1 + i * 0.05); // quick decay
+      const baseFreq = rand(800, 1500); // high-pitched coin
+      osc.frequency.setValueAtTime(baseFreq, now + timeOffset);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * rand(1.1, 1.4), now + timeOffset + 0.05);
+
+      gain.gain.setValueAtTime(rand(0.02, 0.05), now + timeOffset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + 0.08); // very quick decay
 
       osc.connect(gain);
       gain.connect(masterGainRef.current);
 
-      osc.start(now + i * 0.05);
-      osc.stop(now + 0.1 + i * 0.05);
+      osc.start(now + timeOffset);
+      osc.stop(now + timeOffset + 0.08);
+
+      timeOffset += rand(0.03, 0.08); // slight random spacing between coins
     }
   } catch (error) {
     console.error('Sound playback error:', error);
