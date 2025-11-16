@@ -110,31 +110,45 @@ const WaveStockSurfer = () => {
   }, []);
   
   const playWaterSplash = useCallback(() => {
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
-      
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.15);
-    } catch (error) {
-      console.error('Sound playback error:', error);
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    // Short white noise burst
+    const bufferSize = ctx.sampleRate * 0.1;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.2; // softer than before
     }
-  }, [soundEnabled]);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    // Filter to blend with ocean
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(900 + Math.random() * 300, now); // slightly randomize
+    filter.Q.value = 0.8; // smoother than splash
+
+    // Gain with quick volume bump
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.linearRampToValueAtTime(0.15, now + 0.05); // quick rise
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); // fade out
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGainRef.current);
+
+    noise.start(now);
+    noise.stop(now + 0.2);
+  } catch (error) {
+    console.error("Water splash playback error:", error);
+  }
+}, [soundEnabled]);
   
   const playJumpSound = useCallback(() => {
     if (!soundEnabled || !audioContextRef.current) return;
