@@ -116,35 +116,40 @@ const WaveStockSurfer = () => {
     const ctx = audioContextRef.current;
     const now = ctx.currentTime;
 
-    // Create white noise buffer
-    const bufferSize = ctx.sampleRate * 0.1; // very short burst
+    // Random variation so every splash sounds a bit different
+    const randomness = 0.8 + Math.random() * 0.4; // 0.8–1.2
+
+    // Create a short burst of noise
+    const bufferSize = ctx.sampleRate * 0.1;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
 
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.6; // louder than ocean noise
+      data[i] = (Math.random() * 2 - 1) * 0.5 * randomness;
     }
 
     const noise = ctx.createBufferSource();
     noise.buffer = buffer;
 
-    // Filter to make it sound like splashing water
+    // Lowpass filter like ocean + brighter edge splash
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(1500, now); // splash is brighter than ocean background
-    filter.Q.value = 1.2;
+    filter.frequency.value = 1200 + Math.random() * 800; // splash varies
+    filter.Q.value = 0.8;
 
-    // Smooth fade-out
+    // Gain envelope (swoosh shape)
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    gain.gain.setValueAtTime(0.4 * randomness, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
+    // Connect nodes
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(masterGainRef.current);
 
     noise.start(now);
     noise.stop(now + 0.25);
+
   } catch (error) {
     console.error("Water splash playback error:", error);
   }
