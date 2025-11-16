@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Sparkles, Zap, TrendingUp, Info, Plus, X } from 'lucide-react';
+import { Sparkles, Zap, TrendingUp, Info, Plus, X, RefreshCw } from 'lucide-react';
 
 const WaveStockSurfer = () => {
   const [score, setScore] = useState(0);
@@ -12,6 +12,12 @@ const WaveStockSurfer = () => {
   const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
   const [isMobile, setIsMobile] = useState(false);
   
+  // Real stock data states
+  const [realPrices, setRealPrices] = useState({});
+  const [priceChanges, setPriceChanges] = useState({});
+  const [lastUpdated, setLastUpdated] = useState({});
+  const [fetchingPrices, setFetchingPrices] = useState(false);
+  
   const characters = useMemo(() => [
   { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
   { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4', invertDirection: true },
@@ -19,10 +25,10 @@ const WaveStockSurfer = () => {
   { id: 'piccolo', name: 'Foam Ninja', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
   { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
   { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
-  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
+  { id: 'dolphin', name: 'Wave Dolphin', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
   { id: 'cat', name: 'Surf Cat', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
   { id: 'unicorn', name: 'Magic Unicorn', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
-  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
+  { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
 ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
@@ -39,20 +45,11 @@ const WaveStockSurfer = () => {
   }, []);
   
   const initialStocks = useMemo(() => [
-  { 
-    symbol: 'GME', 
-    color: '#EC4899', 
-    history: (() => {
-      const raw = generatePriceHistory(25, 0.12, 500); // generate natural-looking wave
-      const scaleFactor = 500000 / raw[raw.length - 1]; // scale so last price is ~500,000
-      return raw.map(p => p * scaleFactor);
-    })(),
-    selectedChar: 'goku' 
-  },
-  { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
-  { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
-  { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
-], [generatePriceHistory]);
+    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
+    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
+    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
+    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
+  ], [generatePriceHistory]);
   
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
@@ -66,6 +63,69 @@ const WaveStockSurfer = () => {
   const timeRef = useRef(0);
   const keysPressed = useRef({});
   const previousX = useRef({});
+  
+  // Fetch real stock prices
+  const fetchStockPrices = useCallback(async () => {
+    setFetchingPrices(true);
+    const newPrices = {};
+    const newChanges = {};
+    const newUpdated = {};
+    
+    for (const stock of stocks) {
+      try {
+        // Try Finnhub first
+        const finnhubResponse = await fetch(
+          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+        );
+        
+        if (finnhubResponse.ok) {
+          const finnhubData = await finnhubResponse.json();
+          if (finnhubData.c && finnhubData.c > 0) {
+            newPrices[stock.symbol] = finnhubData.c;
+            newChanges[stock.symbol] = {
+              amount: finnhubData.d || 0,
+              percent: finnhubData.dp || 0
+            };
+            newUpdated[stock.symbol] = new Date().toLocaleTimeString();
+            continue;
+          }
+        }
+        
+        // Fallback to Alpha Vantage if Finnhub fails
+        await new Promise(resolve => setTimeout(resolve, 200)); // Rate limiting
+        const alphaResponse = await fetch(
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
+        );
+        
+        if (alphaResponse.ok) {
+          const alphaData = await alphaResponse.json();
+          const quote = alphaData['Global Quote'];
+          if (quote && quote['05. price']) {
+            newPrices[stock.symbol] = parseFloat(quote['05. price']);
+            newChanges[stock.symbol] = {
+              amount: parseFloat(quote['09. change'] || 0),
+              percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
+            };
+            newUpdated[stock.symbol] = new Date().toLocaleTimeString();
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching price for ${stock.symbol}:`, error);
+      }
+    }
+    
+    setRealPrices(newPrices);
+    setPriceChanges(newChanges);
+    setLastUpdated(newUpdated);
+    setFetchingPrices(false);
+  }, [stocks]);
+  
+  // Fetch prices on mount and every 30 seconds
+  useEffect(() => {
+    fetchStockPrices();
+    const interval = setInterval(fetchStockPrices, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStockPrices]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -402,8 +462,8 @@ const WaveStockSurfer = () => {
     const startPrice = history[0];
     const endPrice = history[history.length - 1];
     const priceChange = ((endPrice - startPrice) / startPrice * 100).toFixed(2);
-    ctx.fillText(`Start: $${startPrice.toFixed(2)}`, 10, 20);
-    ctx.fillText(`Now: $${endPrice.toFixed(2)}`, width - 120, 20);
+    ctx.fillText(`Start: ${startPrice.toFixed(2)}`, 10, 20);
+    ctx.fillText(`Now: ${endPrice.toFixed(2)}`, width - 120, 20);
     ctx.fillStyle = priceChange >= 0 ? '#34D399' : '#F87171';
     ctx.fillText(`${priceChange}%`, width / 2 - 20, 20);
   }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes]);
@@ -507,11 +567,63 @@ const WaveStockSurfer = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            Stock Surfer 🌊
+            🏄‍♂️ Wave Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf! Tap jump button to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
           </p>
+        </div>
+        
+        {/* Real Stock Prices Display */}
+        <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-md rounded-2xl p-4 border border-white/30 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              📈 Live Stock Prices
+            </h2>
+            <button
+              onClick={fetchStockPrices}
+              disabled={fetchingPrices}
+              className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <RefreshCw size={16} className={fetchingPrices ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {stocks.map(stock => {
+              const realPrice = realPrices[stock.symbol];
+              const change = priceChanges[stock.symbol];
+              const updated = lastUpdated[stock.symbol];
+              
+              return (
+                <div key={stock.symbol} className="bg-white/10 rounded-lg p-3 border border-white/20">
+                  <div className="text-white font-bold text-lg mb-1">{stock.symbol}</div>
+                  {realPrice ? (
+                    <>
+                      <div className="text-2xl font-bold text-blue-300">
+                        ${realPrice.toFixed(2)}
+                      </div>
+                      {change && (
+                        <div className={`text-sm font-medium ${change.percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {change.percent >= 0 ? '+' : ''}{change.percent.toFixed(2)}%
+                          <span className="text-xs ml-1">
+                            ({change.amount >= 0 ? '+' : ''}${change.amount.toFixed(2)})
+                          </span>
+                        </div>
+                      )}
+                      {updated && (
+                        <div className="text-xs text-blue-200 mt-1">
+                          Updated: {updated}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-sm text-gray-400">Loading...</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -607,6 +719,7 @@ const WaveStockSurfer = () => {
       <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
       <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
       <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+      <p>NOW WITH LIVE DATA: Real stock prices from Finnhub & Alpha Vantage! 📈📊</p>
     </div>
   </div>
 )}
