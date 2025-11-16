@@ -82,6 +82,8 @@ const WaveStockSurfer = () => {
   const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   const touchingRef = useRef(false);
   const currentTouchStock = useRef(null);
+  const [draggedStock, setDraggedStock] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   
   const initAudio = useCallback(() => {
     if (audioContextRef.current) return;
@@ -958,6 +960,41 @@ const WaveStockSurfer = () => {
     }
   }, [selectedStock, stocks]);
 
+  const handleDragStart = useCallback((e, index) => {
+    setDraggedStock(index);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e, index) => {
+    e.preventDefault();
+    if (draggedStock !== null && draggedStock !== index) {
+      setDragOverIndex(index);
+    }
+  }, [draggedStock]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverIndex(null);
+  }, []);
+
+  const handleDrop = useCallback((e, dropIndex) => {
+    e.preventDefault();
+    if (draggedStock !== null && draggedStock !== dropIndex) {
+      setStocks(prev => {
+        const newStocks = [...prev];
+        const [draggedItem] = newStocks.splice(draggedStock, 1);
+        newStocks.splice(dropIndex, 0, draggedItem);
+        return newStocks;
+      });
+    }
+    setDraggedStock(null);
+    setDragOverIndex(null);
+  }, [draggedStock]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedStock(null);
+    setDragOverIndex(null);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
@@ -1267,20 +1304,28 @@ const WaveStockSurfer = () => {
         )}
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {stocks.map((stock) => {
+          {stocks.map((stock, index) => {
             const char = getCharacter(selectedChars[stock.symbol]);
             const isSelected = selectedStock === stock.symbol;
+            const isDragging = draggedStock === index;
+            const isDragOver = dragOverIndex === index;
             
             return (
               <div 
                 key={stock.symbol}
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
                 onClick={() => setSelectedStock(stock.symbol)}
                 onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
                 onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
                 onTouchEnd={handleCanvasTouchEnd}
-                className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative select-none ${
+                className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-move relative select-none ${
                   isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
-                }`}
+                } ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-blue-400 scale-105' : ''}`}
                 style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
                 <button
@@ -1296,6 +1341,7 @@ const WaveStockSurfer = () => {
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
+                      <span className="text-white/50 cursor-move">⋮⋮</span>
                       <h3 className="text-3xl font-bold text-white">{stock.symbol}</h3>
                       {isSelected && <span className="text-green-400 text-sm font-bold">● ACTIVE</span>}
                     </div>
