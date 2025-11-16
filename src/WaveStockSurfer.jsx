@@ -531,11 +531,6 @@ const WaveStockSurfer = () => {
           }
         }
         
-        if (isStalling) {
-          createCutbackSplash(selectedStock, newX, current.y);
-          newDirection = newDirection * -1;
-        }
-        
         if (keysPressed.current['ArrowLeft']) {
           const oldX = newX;
           newX = Math.max(0.05, newX - 0.02);
@@ -555,6 +550,20 @@ const WaveStockSurfer = () => {
         previousX.current[selectedStock] = newX;
         return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
       });
+      
+      if (isStalling && selectedStock) {
+        setSurferPositions(prev => {
+          const current = prev[selectedStock];
+          createCutbackSplash(selectedStock, current.x, current.y);
+          return {
+            ...prev,
+            [selectedStock]: {
+              ...current,
+              direction: current.direction * -1
+            }
+          };
+        });
+      }
     }, 16);
     return () => clearInterval(moveInterval);
   }, [selectedStock, targetPositions, stocks, createCutbackSplash, isStalling]);
