@@ -51,7 +51,7 @@ const WaveStockSurfer = () => {
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
   const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
-  const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, direction: 1 } }), {}));
+  const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, direction: 1, spinning: false, spinCount: 0 } }), {}));
   const [waterTrails, setWaterTrails] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
   const [cutbackSplashes, setCutbackSplashes] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
   const canvasRefs = useRef({});
@@ -144,12 +144,48 @@ const WaveStockSurfer = () => {
     currentTouchStock.current = null;
   }, []);
   
-  const handleJump = () => {
+  const handleJump = useCallback(() => {
     if (selectedStock) {
-      setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: true } }));
-      setTimeout(() => setSurferPositions(prev => ({ ...prev, [selectedStock]: { ...prev[selectedStock], jumping: false } })), 600);
+      setSurferPositions(prev => {
+        const current = prev[selectedStock];
+        if (current.jumping) {
+          // Already jumping - RAPID SPIN!
+          return {
+            ...prev,
+            [selectedStock]: {
+              ...current,
+              direction: current.direction * -1,
+              spinning: true,
+              spinCount: current.spinCount + 1
+            }
+          };
+        } else {
+          // Start jump
+          setTimeout(() => {
+            setSurferPositions(p => ({
+              ...p,
+              [selectedStock]: {
+                ...p[selectedStock],
+                jumping: false,
+                spinning: false,
+                spinCount: 0
+              }
+            }));
+          }, 600);
+          
+          return {
+            ...prev,
+            [selectedStock]: {
+              ...current,
+              jumping: true,
+              spinning: false,
+              spinCount: 0
+            }
+          };
+        }
+      });
     }
-  };
+  }, [selectedStock]);
   
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -164,7 +200,7 @@ const WaveStockSurfer = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedStock]);
+  }, [selectedStock, handleJump]);
   
   const createCutbackSplash = useCallback((stockSymbol, x, y) => {
     const canvas = canvasRefs.current[stockSymbol];
@@ -361,11 +397,9 @@ const WaveStockSurfer = () => {
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
     
-    // Subtle wave adjustment based on real stock price change
     const priceChange = priceChanges[stock.symbol];
     let waveShift = 0;
     if (priceChange) {
-      // Very subtle shift: ±10 pixels max based on percentage change
       waveShift = Math.max(-10, Math.min(10, priceChange.percent * 1.5));
     }
     
@@ -415,21 +449,71 @@ const WaveStockSurfer = () => {
         ctx.fill();
       }
     }
+    
     const surferPos = surferPositions[stock.symbol];
     const surferIndex = Math.floor(surferPos.x * (points.length - 1));
     const surferPoint = points[surferIndex];
     const prevPoint = points[Math.max(0, surferIndex - 1)];
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
+    
+    // Spin effect with rotation and particles
+    let spinRotation = 0;
+    if (surferPos.spinning && surferPos.jumping) {
+      spinRotation = (time * 20) % (Math.PI * 2);
+    }
+    
     ctx.save();
     ctx.translate(surferPoint.x, surferPoint.y - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8);
-    ctx.rotate(angle);
+    ctx.rotate(angle + spinRotation);
     const shouldFlip = char?.invertDirection ? (surferPos.direction === -1) : (surferPos.direction === 1);
-    if (shouldFlip) ctx.scale(-1, 1);
-    if (stock.symbol === selectedStock) { ctx.shadowBlur = 25; ctx.shadowColor = '#00FF00'; }
+    if (shouldFlip && !surferPos.spinning) ctx.scale(-1, 1);
+    
+    if (stock.symbol === selectedStock) { 
+      ctx.shadowBlur = surferPos.spinning ? 40 : 25; 
+      ctx.shadowColor = surferPos.spinning ? '#FFD700' : '#00FF00';
+    }
+    
+    const spinScale = surferPos.spinning ? 1 + Math.sin(time * 10) * 0.2 : 1;
+    ctx.scale(spinScale, spinScale);
+    
     ctx.font = '32px Arial';
     ctx.fillText(char?.emoji || '🏄‍♂️', -16, 8);
     ctx.restore();
+    
+    // Spin trail particles
+    if (surferPos.spinning && surferPos.jumping) {
+      for (let i = 0; i < 3; i++) {
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = ['#FFD700', '#FF6B35', '#4ECDC4', '#F87171'][i % 4];
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = ctx.fillStyle;
+        const trailAngle = (time * 20 + i * Math.PI / 1.5) % (Math.PI * 2);
+        const trailDist = 25 + Math.sin(time * 15 + i) * 10;
+        const trailX = surferPoint.x + Math.cos(trailAngle) * trailDist;
+        const trailY = surferPoint.y - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8 + Math.sin(trailAngle) * trailDist;
+        ctx.beginPath();
+        ctx.arc(trailX, trailY, 4 + Math.sin(time * 10 + i) * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+    }
+    
+    // Spin counter display
+    if (surferPos.spinCount > 0 && surferPos.jumping && stock.symbol === selectedStock) {
+      ctx.save();
+      ctx.font = 'bold 24px Arial';
+      ctx.fillStyle = '#FFD700';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.textAlign = 'center';
+      const counterY = surferPoint.y - 60 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8;
+      ctx.strokeText(`${surferPos.spinCount}x SPIN!`, surferPoint.x, counterY);
+      ctx.fillText(`${surferPos.spinCount}x SPIN!`, surferPoint.x, counterY);
+      ctx.restore();
+    }
+    
     (waterTrails[stock.symbol] || []).forEach(particle => {
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = '#60A5FA';
@@ -527,7 +611,7 @@ const WaveStockSurfer = () => {
       setSelectedChars(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: 'goku' }));
       setSurferPositions(prev => ({ 
         ...prev, 
-        [newStock.symbol.toUpperCase()]: { x: 0.3, y: 0.5, jumping: false, direction: 1 }
+        [newStock.symbol.toUpperCase()]: { x: 0.3, y: 0.5, jumping: false, direction: 1, spinning: false, spinCount: 0 }
       }));
       setWaterTrails(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setCutbackSplashes(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
@@ -578,7 +662,7 @@ const WaveStockSurfer = () => {
             🏄‍♂️ Wave Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
-            {isMobile ? 'Touch & hold the wave to surf! Tap jump button to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
+            {isMobile ? 'Touch & hold the wave to surf! Tap jump to jump & spin rapidly!' : 'Use arrow keys to carve, SPACE to jump, keep pressing SPACE to spin rapidly!'}
           </p>
         </div>
         
@@ -627,7 +711,7 @@ const WaveStockSurfer = () => {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
                     <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
-                    <span>Jump!</span>
+                    <span>Jump! Keep tapping to spin! 🌀</span>
                   </div>
                 </>
               ) : (
@@ -644,7 +728,7 @@ const WaveStockSurfer = () => {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
                     <kbd className="px-3 py-1 bg-white/20 rounded">SPACE</kbd>
-                    <span>Jump!</span>
+                    <span>Jump! Keep pressing to SPIN! 🌀</span>
                   </div>
                 </>
               )}
@@ -672,7 +756,7 @@ const WaveStockSurfer = () => {
               🌊 Our Mission 🏄‍♂️
             </h2>
             <div className="space-y-3 text-base">
-              <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏖️</p>
+              <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
               <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
               <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
             </div>
