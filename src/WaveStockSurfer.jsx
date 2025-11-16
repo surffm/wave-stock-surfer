@@ -1303,15 +1303,15 @@ const WaveStockSurfer = () => {
                 }`}
                 style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
-                <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                  <div className="flex flex-col gap-1">
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                  <div className="flex flex-col gap-0.5">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         moveStockUp(stock.symbol);
                       }}
                       disabled={index === 0}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
                         index === 0 
                           ? 'bg-white/5 text-white/20 cursor-not-allowed' 
                           : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
@@ -1326,7 +1326,7 @@ const WaveStockSurfer = () => {
                         moveStockDown(stock.symbol);
                       }}
                       disabled={index === stocks.length - 1}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
                         index === stocks.length - 1 
                           ? 'bg-white/5 text-white/20 cursor-not-allowed' 
                           : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
@@ -1341,10 +1341,10 @@ const WaveStockSurfer = () => {
                       e.stopPropagation();
                       removeStock(stock.symbol);
                     }}
-                    className="w-8 h-8 rounded-lg bg-red-500/80 hover:bg-red-600 text-white flex items-center justify-center transition-all hover:scale-110"
+                    className="text-white/50 hover:text-white transition-colors"
                     title="Remove stock"
                   >
-                    <X size={20} />
+                    <X size={16} />
                   </button>
                 </div>
                 
