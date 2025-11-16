@@ -15,7 +15,6 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [isStalling, setIsStalling] = useState(false);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -550,23 +549,9 @@ const WaveStockSurfer = () => {
         previousX.current[selectedStock] = newX;
         return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
       });
-      
-      if (isStalling && selectedStock) {
-        setSurferPositions(prev => {
-          const current = prev[selectedStock];
-          createCutbackSplash(selectedStock, current.x, current.y);
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
-              direction: current.direction * -1
-            }
-          };
-        });
-      }
     }, 16);
     return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, stocks, createCutbackSplash, isStalling]);
+  }, [selectedStock, targetPositions, stocks, createCutbackSplash]);
   
   useEffect(() => {
     const trailInterval = setInterval(() => {
@@ -969,10 +954,6 @@ const WaveStockSurfer = () => {
                     <span>Surf anywhere! 💧</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">⬇️ Button</span>
-                    <span>Hold to STALL & spray water! 🌀</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
                     <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
                     <span>Jump! Keep tapping to spin! 🌀</span>
                   </div>
@@ -1196,30 +1177,6 @@ const WaveStockSurfer = () => {
       
       {isMobile && (
         <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsStalling(true);
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsStalling(false);
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            className={`w-20 h-20 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform select-none ${
-              isStalling 
-                ? 'bg-gradient-to-br from-red-500 to-orange-600 animate-pulse' 
-                : 'bg-gradient-to-br from-purple-500 to-pink-600'
-            }`}
-            style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-          >
-            ⬇️
-          </button>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
