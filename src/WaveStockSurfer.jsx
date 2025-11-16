@@ -285,7 +285,6 @@ return; // mute
   }, [soundEnabled]);
   
   const playCelebrationSound = useCallback(() => {
-return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
