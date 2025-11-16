@@ -291,41 +291,53 @@ return; // mute
     const ctx = audioContextRef.current;
     const now = ctx.currentTime;
 
-    // Optional light delay for oceanic echo
-    const delay = ctx.createDelay(2.0);
-    delay.delayTime.setValueAtTime(0.3, now);
+    // Delay for echo / space
+    const delay = ctx.createDelay(4.0);
+    delay.delayTime.setValueAtTime(0.4, now);
     const feedback = ctx.createGain();
-    feedback.gain.setValueAtTime(0.25, now);
+    feedback.gain.setValueAtTime(0.2, now);
     delay.connect(feedback);
     feedback.connect(delay);
     delay.connect(masterGainRef.current);
 
-    // dolphin-like short whistles
-    const dolphinFrequencies = [1200, 1500, 1800, 1600, 2000]; // high-pitched whistles
-    dolphinFrequencies.forEach((freq, i) => {
+    // Helper: pick a random number in range
+    const rand = (min, max) => Math.random() * (max - min) + min;
+
+    // Generate multiple "animal calls"
+    for (let i = 0; i < 6; i++) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + i * 0.2);
-      // quick frequency glide like a dolphin chirp
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.3, now + 0.15 + i * 0.2);
+      // Randomly pick type: sine for dolphins/whales, triangle or saw for jungle insects/birds
+      const types = ['sine', 'triangle', 'sawtooth'];
+      osc.type = types[Math.floor(Math.random() * types.length)];
 
-      gain.gain.setValueAtTime(0, now + i * 0.2);
-      gain.gain.linearRampToValueAtTime(0.05, now + 0.05 + i * 0.2); // small airy burst
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5 + i * 0.2);
+      // Random frequency range for different animals
+      let baseFreq;
+      const animalType = Math.random();
+      if (animalType < 0.4) baseFreq = rand(500, 2000); // dolphin/whale
+      else if (animalType < 0.7) baseFreq = rand(2000, 5000); // bird / insect
+      else baseFreq = rand(100, 400); // low ambient rumble / jungle
+
+      osc.frequency.setValueAtTime(baseFreq, now + i * 0.3);
+      // small random glide for natural variation
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * rand(1.05, 1.3), now + 0.2 + i * 0.3);
+
+      // Randomized amplitude envelope (very quiet)
+      const peak = rand(0.01, 0.03);
+      gain.gain.setValueAtTime(0, now + i * 0.3);
+      gain.gain.linearRampToValueAtTime(peak, now + 0.05 + i * 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + rand(0.4, 0.8) + i * 0.3);
 
       osc.connect(gain);
-      gain.connect(delay); // route through delay for echo
-      osc.start(now + i * 0.2);
-      osc.stop(now + 0.5 + i * 0.2);
-    });
-
+      gain.connect(delay);
+      osc.start(now + i * 0.3);
+      osc.stop(now + rand(0.5, 1.0) + i * 0.3);
+    }
   } catch (error) {
     console.error('Sound playback error:', error);
   }
 }, [soundEnabled]);
-
 
   
   const playPowerUpSound = useCallback(() => {
