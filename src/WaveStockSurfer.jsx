@@ -361,19 +361,15 @@ const WaveStockSurfer = () => {
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
     
-    // Adjust wave position based on real price
-    const realPrice = realPrices[stock.symbol];
+    // Subtle wave adjustment based on real stock price change
     const priceChange = priceChanges[stock.symbol];
-    let priceOffset = 0;
-    
-    if (realPrice && priceChange) {
-      // Subtle vertical shift based on price change percentage
-      // Positive = wave slightly higher, Negative = wave slightly lower
-      // Limited to +/- 15 pixels to keep it subtle
-      priceOffset = Math.max(-15, Math.min(15, priceChange.percent * 2));
+    let waveShift = 0;
+    if (priceChange) {
+      // Very subtle shift: ±10 pixels max based on percentage change
+      waveShift = Math.max(-10, Math.min(10, priceChange.percent * 1.5));
     }
     
-    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - priceOffset;
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - waveShift;
     const offset = time * 0.02;
     const points = [];
     for (let i = 0; i < 60; i++) {
@@ -469,7 +465,7 @@ const WaveStockSurfer = () => {
       
       ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
       ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-      ctx.fillText(`$${realPrice.toFixed(2)}`, 15, 35);
+      ctx.fillText(`${realPrice.toFixed(2)}`, 15, 35);
       
       ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
       ctx.fillStyle = priceColor;
