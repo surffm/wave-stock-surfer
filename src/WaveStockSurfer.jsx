@@ -151,6 +151,7 @@ const WaveStockSurfer = () => {
 }, [soundEnabled]);
   
   const playJumpSound = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
@@ -178,6 +179,7 @@ const WaveStockSurfer = () => {
   }, [soundEnabled]);
   
   const playSpinSound = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
@@ -263,6 +265,7 @@ return; // mute
   }, [soundEnabled]);
   
   const playCelebrationSound = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
