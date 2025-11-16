@@ -1,663 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Sparkles, Zap, TrendingUp, Info, Plus, X } from 'lucide-react';
-
-const WaveStockSurfer = () => {
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [multiplier, setMultiplier] = useState(1);
-  const [showMission, setShowMission] = useState(false);
-  const [powerUp, setPowerUp] = useState(null);
-  const [celebration, setCelebration] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
-  const [isMobile, setIsMobile] = useState(false);
-  const [realPrices, setRealPrices] = useState({});
-  const [priceChanges, setPriceChanges] = useState({});
-  const [fetchingPrices, setFetchingPrices] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  
-  const audioContextRef = useRef(null);
-  const oceanNoiseRef = useRef(null);
-  const masterGainRef = useRef(null);
-  
-  const characters = useMemo(() => [
-    { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
-    { id: 'vegeta', name: 'Surf Ninja', emoji: '🥷', unlocked: true, color: '#4ECDC4', invertDirection: true },
-    { id: 'gohan', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D', invertDirection: false },
-    { id: 'piccolo', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
-    { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
-    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
-    { id: 'dolphin', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
-    { id: 'cat', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
-    { id: 'unicorn', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
-    { id: 'wolf', name: 'Storm Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
-  ], []);
-
-  const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
-  const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
-  const [powerUpCount, setPowerUpCount] = useState(0);
-  
-  const generatePriceHistory = useCallback((basePrice, volatility, points) => {
-    const history = [basePrice];
-    for (let i = 1; i < points; i++) {
-      const change = (Math.random() - 0.48) * volatility;
-      history.push(history[i - 1] * (1 + change));
-    }
-    return history;
-  }, []);
-  
-  const initialStocks = useMemo(() => [
-    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
-    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
-    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
-    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
-  ], [generatePriceHistory]);
-  
-  const [stocks, setStocks] = useState(initialStocks);
-  const [selectedStock, setSelectedStock] = useState('GME');
-  const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
-  const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, direction: 1, spinning: false, spinCount: 0 } }), {}));
-  const [waterTrails, setWaterTrails] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
-  const [cutbackSplashes, setCutbackSplashes] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
-  const canvasRefs = useRef({});
-  const timeRef = useRef(0);
-  const keysPressed = useRef({});
-  const previousX = useRef({});
-  const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
-  const touchingRef = useRef(false);
-  const currentTouchStock = useRef(null);
-  
-  const initAudio = useCallback(() => {
-    if (audioContextRef.current) return;
-    
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      const audioCtx = new AudioContext();
-      audioContextRef.current = audioCtx;
-      
-      masterGainRef.current = audioCtx.createGain();
-      masterGainRef.current.gain.value = 0.3;
-      masterGainRef.current.connect(audioCtx.destination);
-      
-      const bufferSize = audioCtx.sampleRate * 2;
-      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = (Math.random() * 2 - 1) * 0.15;
-      }
-      
-      const oceanNoise = audioCtx.createBufferSource();
-      oceanNoise.buffer = buffer;
-      oceanNoise.loop = true;
-      
-      const oceanFilter = audioCtx.createBiquadFilter();
-      oceanFilter.type = 'lowpass';
-      oceanFilter.frequency.value = 800;
-      oceanFilter.Q.value = 0.5;
-      
-      const oceanGain = audioCtx.createGain();
-      oceanGain.gain.value = 0.2;
-      
-      oceanNoise.connect(oceanFilter);
-      oceanFilter.connect(oceanGain);
-      oceanGain.connect(masterGainRef.current);
-      
-      oceanNoise.start();
-      oceanNoiseRef.current = oceanNoise;
-    } catch (error) {
-      console.error('Audio initialization failed:', error);
-    }
-  }, []);
-  
-  const playWaterSplash = useCallback(() => {
-  if (!soundEnabled || !audioContextRef.current) return;
-
-  try {
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
-
-    // Short white noise burst
-    const bufferSize = ctx.sampleRate * 0.1;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.2; // softer than before
-    }
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    // Filter to blend with ocean
-    const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(900 + Math.random() * 300, now); // slightly randomize
-    filter.Q.value = 0.8; // smoother than splash
-
-    // Gain with quick volume bump
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.05, now);
-    gain.gain.linearRampToValueAtTime(0.15, now + 0.05); // quick rise
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); // fade out
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(masterGainRef.current);
-
-    noise.start(now);
-    noise.stop(now + 0.2);
-  } catch (error) {
-    console.error("Water splash playback error:", error);
-  }
-}, [soundEnabled]);
-  
-const playJumpSound = useCallback(() => {
-  if (!soundEnabled || !audioContextRef.current) return;
-
-  try {
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
-
-    const bufferSize = ctx.sampleRate * 0.12;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.18; // subtle
-    }
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(1000 + Math.random() * 300, now);
-    filter.Q.value = 0.8;
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.04, now);
-    gain.gain.linearRampToValueAtTime(0.12, now + 0.06); // soft bump
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(masterGainRef.current);
-
-    noise.start(now);
-    noise.stop(now + 0.22);
-  } catch (error) {
-    console.error("Jump sound error:", error);
-  }
-}, [soundEnabled]);
-  
-  const playSpinSound = useCallback(() => {
-  if (!soundEnabled || !audioContextRef.current) return;
-
-  try {
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
-
-    const bufferSize = ctx.sampleRate * 0.15;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.2; // soft
-    }
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass"; // gives a spinning “whoosh” feeling
-    filter.frequency.setValueAtTime(800 + Math.random() * 400, now);
-    filter.Q.value = 1;
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.03, now);
-    gain.gain.linearRampToValueAtTime(0.1, now + 0.05); // gentle rise
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(masterGainRef.current);
-
-    noise.start(now);
-    noise.stop(now + 0.25);
-  } catch (error) {
-    console.error("Spin sound error:", error);
-  }
-}, [soundEnabled]);
-  
-  const playScoreSound = useCallback(() => {
-return; // mute
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      [0, 0.08, 0.16].forEach((offset, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.value = [523.25, 659.25, 783.99][i];
-        
-        gain.gain.setValueAtTime(0.1, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.15);
-        
-        osc.connect(gain);
-        gain.connect(masterGainRef.current);
-        
-        osc.start(now + offset);
-        osc.stop(now + offset + 0.15);
-      });
-    } catch (error) {
-      console.error('Sound playback error:', error);
-    }
-  }, [soundEnabled]);
-  
-  const playStreakSound = useCallback(() => {
-return; // mute
-
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(880, now);
-      osc.frequency.exponentialRampToValueAtTime(1760, now + 0.15);
-      
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.2);
-    } catch (error) {
-      console.error('Sound playback error:', error);
-    }
-  }, [soundEnabled]);
-  
-  const playCelebrationSound = useCallback(() => {
-  if (!soundEnabled || !audioContextRef.current) return;
-
-  try {
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
-
-    const rand = (min, max) => Math.random() * (max - min) + min;
-
-    // Random number of mini coins per celebration
-    const coinCount = Math.floor(rand(3, 7));
-    let timeOffset = 0;
-
-    for (let i = 0; i < coinCount; i++) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      // Choose wave type randomly for texture variety
-      const waveTypes = ['triangle', 'sine', 'square'];
-      osc.type = waveTypes[Math.floor(rand(0, waveTypes.length))];
-
-      const baseFreq = rand(800, 1500); // high-pitched coin
-      osc.frequency.setValueAtTime(baseFreq, now + timeOffset);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * rand(1.1, 1.4), now + timeOffset + 0.05);
-
-      gain.gain.setValueAtTime(rand(0.02, 0.05), now + timeOffset);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + 0.08); // very quick decay
-
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-
-      osc.start(now + timeOffset);
-      osc.stop(now + timeOffset + 0.08);
-
-      timeOffset += rand(0.03, 0.08); // slight random spacing between coins
-    }
-  } catch (error) {
-    console.error('Sound playback error:', error);
-  }
-}, [soundEnabled]);
-
-  
-  const playPowerUpSound = useCallback(() => {
-return; // mute
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
-      
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.35);
-    } catch (error) {
-      console.error('Sound playback error:', error);
-    }
-  }, [soundEnabled]);
-  
-  const toggleSound = useCallback(() => {
-    if (!soundEnabled) {
-      initAudio();
-      setSoundEnabled(true);
-    } else {
-      setSoundEnabled(false);
-      if (oceanNoiseRef.current) {
-        try {
-          oceanNoiseRef.current.stop();
-        } catch (e) {}
-        oceanNoiseRef.current = null;
-      }
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (e) {}
-        audioContextRef.current = null;
-      }
-    }
-  }, [soundEnabled, initAudio]);
-  
-  const fetchStockPrices = useCallback(async () => {
-    setFetchingPrices(true);
-    const newPrices = {};
-    const newChanges = {};
-    
-    for (const stock of stocks) {
-      try {
-        const finnhubResponse = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
-        );
-        
-        if (finnhubResponse.ok) {
-          const finnhubData = await finnhubResponse.json();
-          if (finnhubData.c && finnhubData.c > 0) {
-            newPrices[stock.symbol] = finnhubData.c;
-            newChanges[stock.symbol] = {
-              amount: finnhubData.d || 0,
-              percent: finnhubData.dp || 0
-            };
-            continue;
-          }
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-        const alphaResponse = await fetch(
-          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
-        );
-        
-        if (alphaResponse.ok) {
-          const alphaData = await alphaResponse.json();
-          const quote = alphaData['Global Quote'];
-          if (quote && quote['05. price']) {
-            newPrices[stock.symbol] = parseFloat(quote['05. price']);
-            newChanges[stock.symbol] = {
-              amount: parseFloat(quote['09. change'] || 0),
-              percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
-            };
-          }
-        }
-      } catch (error) {
-        console.error(`Error fetching price for ${stock.symbol}:`, error);
-      }
-    }
-    
-    setRealPrices(newPrices);
-    setPriceChanges(newChanges);
-    setFetchingPrices(false);
-  }, [stocks]);
-  
-  useEffect(() => {
-    fetchStockPrices();
-    const interval = setInterval(fetchStockPrices, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStockPrices]);
-  
-  useEffect(() => {
-    const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-  
-  const handleStockCardTouch = useCallback((e, stockSymbol) => {
-    if (stockSymbol !== selectedStock) return;
-    e.preventDefault();
-    const canvas = canvasRefs.current[stockSymbol];
-    if (!canvas) return;
-    const canvasRect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const normalizedX = Math.max(0.05, Math.min(0.95, (clientX - canvasRect.left) / canvasRect.width));
-    const normalizedY = Math.max(0.1, Math.min(1.5, (clientY - canvasRect.top) / canvasRect.height));
-    setTargetPositions(prev => ({ ...prev, [stockSymbol]: { x: normalizedX, y: normalizedY } }));
-    touchingRef.current = true;
-    currentTouchStock.current = stockSymbol;
-  }, [selectedStock]);
-  
-  const handleCanvasTouchEnd = useCallback(() => {
-    touchingRef.current = false;
-    currentTouchStock.current = null;
-  }, []);
-  
-  const handleJump = useCallback(() => {
-    if (selectedStock) {
-      setSurferPositions(prev => {
-        const current = prev[selectedStock];
-        if (current.jumping) {
-          playSpinSound();
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
-              direction: current.direction * -1,
-              spinning: true,
-              spinCount: current.spinCount + 1
-            }
-          };
-        } else {
-          playJumpSound();
-          setTimeout(() => {
-            setSurferPositions(p => ({
-              ...p,
-              [selectedStock]: {
-                ...p[selectedStock],
-                jumping: false,
-                spinning: false,
-                spinCount: 0
-              }
-            }));
-          }, 600);
-          
-          return {
-            ...prev,
-            [selectedStock]: {
-              ...current,
-              jumping: true,
-              spinning: false,
-              spinCount: 0
-            }
-          };
-        }
-      });
-    }
-  }, [selectedStock, playJumpSound, playSpinSound]);
-  
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      keysPressed.current[e.key] = true;
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
-      if (e.key === ' ' && selectedStock) handleJump();
-    };
-    const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [selectedStock, handleJump]);
-  
-  const createCutbackSplash = useCallback((stockSymbol, x, y) => {
-    const canvas = canvasRefs.current[stockSymbol];
-    if (!canvas) return;
-    const stock = stocks.find(s => s.symbol === stockSymbol);
-    if (!stock) return;
-    const width = canvas.width;
-    const height = canvas.height;
-    const history = stock.history;
-    const minPrice = Math.min(...history);
-    const maxPrice = Math.max(...history);
-    const priceRange = maxPrice - minPrice || 1;
-    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
-    const historyIndex = x * (history.length - 1);
-    const index = Math.floor(historyIndex);
-    const nextIndex = Math.min(index + 1, history.length - 1);
-    const t = historyIndex - index;
-    const price = history[index] * (1 - t) + history[nextIndex] * t;
-    let baseY = normalizePrice(price) + Math.sin(x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-    const splashX = x * width;
-    const splashY = baseY + (y - 0.5) * height * 0.8;
-    const particles = [];
-    for (let i = 0; i < 25; i++) {
-      const angle = (Math.random() * Math.PI) - Math.PI / 2;
-      const speed = Math.random() * 8 + 6;
-      particles.push({ id: Date.now() + Math.random(), x: splashX, y: splashY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 3, life: 1, size: Math.random() * 5 + 3 });
-    }
-    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...prev[stockSymbol], ...particles] }));
-    playWaterSplash();
-  }, [stocks, playWaterSplash]);
-  
-  useEffect(() => {
-    const moveInterval = setInterval(() => {
-      if (!selectedStock) return;
-      setSurferPositions(prev => {
-        const current = prev[selectedStock];
-        let newX = current.x;
-        let newY = current.y;
-        let newDirection = current.direction;
-        if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
-        const stock = stocks.find(s => s.symbol === selectedStock);
-        if (stock && !current.jumping) {
-          const canvas = canvasRefs.current[selectedStock];
-          if (canvas) {
-            const height = canvas.height;
-            const history = stock.history;
-            const minPrice = Math.min(...history);
-            const maxPrice = Math.max(...history);
-            const priceRange = maxPrice - minPrice || 1;
-            const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
-            const historyIndex = current.x * (history.length - 1);
-            const index = Math.floor(historyIndex);
-            const nextIndex = Math.min(index + 1, history.length - 1);
-            const t = historyIndex - index;
-            const price = history[index] * (1 - t) + history[nextIndex] * t;
-            const waveY = normalizePrice(price) + Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-            newY = Math.max(waveNormalizedY, newY);
-          }
-        }
-        const target = targetPositions[selectedStock];
-        if (target) {
-          const deltaX = target.x - current.x;
-          const deltaY = target.y - current.y;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-          if (distance > 0.005) {
-            const speed = 0.08;
-            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
-            const xDiff = newX - previousX.current[selectedStock];
-            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
-            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
-            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
-            if (!current.jumping && stock) {
-              const canvas = canvasRefs.current[selectedStock];
-              if (canvas) {
-                const height = canvas.height;
-                const history = stock.history;
-                const minPrice = Math.min(...history);
-                const maxPrice = Math.max(...history);
-                const priceRange = maxPrice - minPrice || 1;
-                const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
-                const historyIndex = newX * (history.length - 1);
-                const index = Math.floor(historyIndex);
-                const nextIndex = Math.min(index + 1, history.length - 1);
-                const t = historyIndex - index;
-                const price = history[index] * (1 - t) + history[nextIndex] * t;
-                const waveY = normalizePrice(price) + Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
-                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
-                targetY = Math.max(waveNormalizedY, targetY);
-              }
-            }
-            newY = targetY;
-          } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
-            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-          }
-        }
-        if (keysPressed.current['ArrowLeft']) {
-          const oldX = newX;
-          newX = Math.max(0.05, newX - 0.02);
-          if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
-          if (newX < oldX) newDirection = -1;
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowRight']) {
-          const oldX = newX;
-          newX = Math.min(0.95, newX + 0.02);
-          if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
-          if (newX > oldX) newDirection = 1;
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
-        }
-        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
-        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
-        previousX.current[selectedStock] = newX;
-        return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
-      });
-    }, 16);
-    return () => clearInterval(moveInterval);
-  }, [selectedStock, targetPositions, stocks, createCutbackSplash]);
-  
-  useEffect(() => {
-    const trailInterval = setInterval(() => {
-      stocks.forEach(stock => {
-        const surferPos = surferPositions[stock.symbol];
-        const canvas = canvasRefs.current[stock.symbol];
-        if (!canvas || !surferPos) return;
-        const width = canvas.width;
-        const height = canvas.height;
-        const history = stock.history;
-        const minPrice = Math.min(...history);
-        const maxPrice = Math.max(...history);
-        const priceRange = maxPrice - minPrice || 1;
-        const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
-        const historyIndex = surferPos.x * (history.length - 1);
-        const index = Math.floor(historyIndex);
-        const nextIndex = Math.min(index + 1, history.length - 1);
-        const t = historyIndex - index;
-        const price = history[index] * (1 - t) + history[nextIndex] * t;
-        const baseY = normalizePrice(price) + Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
-        const surferX = surferPos.x * width;
-        const surferY = baseY - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8;
-        for (let i = 0; i < 2; i++) {
-          const spreadAngle = (Math.random() - 0.5) * Math.PI / 3;
-          const speed = Math.random() * 3 + 2;
-          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...prev[stock.symbol], {
+setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...prev[stock.symbol], {
             id: Date.now() + Math.random(), x: surferX, y: surferY,
             vx: Math.cos(Math.PI + spreadAngle) * speed, vy: Math.sin(Math.PI + spreadAngle) * speed - 2,
             life: 1, size: Math.random() * 3 + 2
@@ -1034,6 +375,10 @@ return; // mute
                     <span>Surf anywhere! 💧</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-blue-200">
+                    <span className="px-3 py-1 bg-white/20 rounded">⬇️ Button</span>
+                    <span>Hold to STALL & spray water! 🌀</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-blue-200">
                     <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
                     <span>Jump! Keep tapping to spin! 🌀</span>
                   </div>
@@ -1256,7 +601,31 @@ return; // mute
       </div>
       
       {isMobile && (
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsStalling(true);
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsStalling(false);
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className={`w-20 h-20 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform ${
+              isStalling 
+                ? 'bg-gradient-to-br from-red-500 to-orange-600 animate-pulse' 
+                : 'bg-gradient-to-br from-purple-500 to-pink-600'
+            }`}
+            style={{ touchAction: 'none' }}
+          >
+            ⬇️
+          </button>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
@@ -1275,4 +644,592 @@ return; // mute
   );
 };
 
-export default WaveStockSurfer;
+export default WaveStockSurfer;import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Sparkles, Zap, TrendingUp, Info, Plus, X } from 'lucide-react';
+
+const WaveStockSurfer = () => {
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [multiplier, setMultiplier] = useState(1);
+  const [showMission, setShowMission] = useState(false);
+  const [powerUp, setPowerUp] = useState(null);
+  const [celebration, setCelebration] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
+  const [isMobile, setIsMobile] = useState(false);
+  const [realPrices, setRealPrices] = useState({});
+  const [priceChanges, setPriceChanges] = useState({});
+  const [fetchingPrices, setFetchingPrices] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [isStalling, setIsStalling] = useState(false);
+  
+  const audioContextRef = useRef(null);
+  const oceanNoiseRef = useRef(null);
+  const masterGainRef = useRef(null);
+  
+  const characters = useMemo(() => [
+    { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
+    { id: 'vegeta', name: 'Surf Ninja', emoji: '🥷', unlocked: true, color: '#4ECDC4', invertDirection: true },
+    { id: 'gohan', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D', invertDirection: false },
+    { id: 'piccolo', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
+    { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
+    { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
+    { id: 'dolphin', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
+    { id: 'cat', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
+    { id: 'unicorn', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
+    { id: 'wolf', name: 'Storm Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
+  ], []);
+
+  const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
+  const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
+  const [powerUpCount, setPowerUpCount] = useState(0);
+  
+  const generatePriceHistory = useCallback((basePrice, volatility, points) => {
+    const history = [basePrice];
+    for (let i = 1; i < points; i++) {
+      const change = (Math.random() - 0.48) * volatility;
+      history.push(history[i - 1] * (1 + change));
+    }
+    return history;
+  }, []);
+  
+  const initialStocks = useMemo(() => [
+    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
+    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
+    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
+    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
+  ], [generatePriceHistory]);
+  
+  const [stocks, setStocks] = useState(initialStocks);
+  const [selectedStock, setSelectedStock] = useState('GME');
+  const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
+  const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, direction: 1, spinning: false, spinCount: 0 } }), {}));
+  const [waterTrails, setWaterTrails] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const [cutbackSplashes, setCutbackSplashes] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: [] }), {}));
+  const canvasRefs = useRef({});
+  const timeRef = useRef(0);
+  const keysPressed = useRef({});
+  const previousX = useRef({});
+  const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
+  const touchingRef = useRef(false);
+  const currentTouchStock = useRef(null);
+  
+  const initAudio = useCallback(() => {
+    if (audioContextRef.current) return;
+    
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContext();
+      audioContextRef.current = audioCtx;
+      
+      masterGainRef.current = audioCtx.createGain();
+      masterGainRef.current.gain.value = 0.3;
+      masterGainRef.current.connect(audioCtx.destination);
+      
+      const bufferSize = audioCtx.sampleRate * 2;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.15;
+      }
+      
+      const oceanNoise = audioCtx.createBufferSource();
+      oceanNoise.buffer = buffer;
+      oceanNoise.loop = true;
+      
+      const oceanFilter = audioCtx.createBiquadFilter();
+      oceanFilter.type = 'lowpass';
+      oceanFilter.frequency.value = 800;
+      oceanFilter.Q.value = 0.5;
+      
+      const oceanGain = audioCtx.createGain();
+      oceanGain.gain.value = 0.2;
+      
+      oceanNoise.connect(oceanFilter);
+      oceanFilter.connect(oceanGain);
+      oceanGain.connect(masterGainRef.current);
+      
+      oceanNoise.start();
+      oceanNoiseRef.current = oceanNoise;
+    } catch (error) {
+      console.error('Audio initialization failed:', error);
+    }
+  }, []);
+  
+  const playWaterSplash = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+
+      const bufferSize = ctx.sampleRate * 0.1;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.2;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(900 + Math.random() * 300, now);
+      filter.Q.value = 0.8;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGainRef.current);
+
+      noise.start(now);
+      noise.stop(now + 0.2);
+    } catch (error) {
+      console.error("Water splash playback error:", error);
+    }
+  }, [soundEnabled]);
+  
+  const playJumpSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+
+      const bufferSize = ctx.sampleRate * 0.12;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.18;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(1000 + Math.random() * 300, now);
+      filter.Q.value = 0.8;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.linearRampToValueAtTime(0.12, now + 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGainRef.current);
+
+      noise.start(now);
+      noise.stop(now + 0.22);
+    } catch (error) {
+      console.error("Jump sound error:", error);
+    }
+  }, [soundEnabled]);
+  
+  const playSpinSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+
+      const bufferSize = ctx.sampleRate * 0.15;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.2;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(800 + Math.random() * 400, now);
+      filter.Q.value = 1;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.03, now);
+      gain.gain.linearRampToValueAtTime(0.1, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGainRef.current);
+
+      noise.start(now);
+      noise.stop(now + 0.25);
+    } catch (error) {
+      console.error("Spin sound error:", error);
+    }
+  }, [soundEnabled]);
+  
+  const playScoreSound = useCallback(() => {
+    return;
+  }, []);
+  
+  const playStreakSound = useCallback(() => {
+    return;
+  }, []);
+  
+  const playCelebrationSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+
+      const rand = (min, max) => Math.random() * (max - min) + min;
+      const coinCount = Math.floor(rand(3, 7));
+      let timeOffset = 0;
+
+      for (let i = 0; i < coinCount; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        const waveTypes = ['triangle', 'sine', 'square'];
+        osc.type = waveTypes[Math.floor(rand(0, waveTypes.length))];
+
+        const baseFreq = rand(800, 1500);
+        osc.frequency.setValueAtTime(baseFreq, now + timeOffset);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * rand(1.1, 1.4), now + timeOffset + 0.05);
+
+        gain.gain.setValueAtTime(rand(0.02, 0.05), now + timeOffset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + 0.08);
+
+        osc.connect(gain);
+        gain.connect(masterGainRef.current);
+
+        osc.start(now + timeOffset);
+        osc.stop(now + timeOffset + 0.08);
+
+        timeOffset += rand(0.03, 0.08);
+      }
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+
+  const playPowerUpSound = useCallback(() => {
+    return;
+  }, []);
+  
+  const toggleSound = useCallback(() => {
+    if (!soundEnabled) {
+      initAudio();
+      setSoundEnabled(true);
+    } else {
+      setSoundEnabled(false);
+      if (oceanNoiseRef.current) {
+        try {
+          oceanNoiseRef.current.stop();
+        } catch (e) {}
+        oceanNoiseRef.current = null;
+      }
+      if (audioContextRef.current) {
+        try {
+          audioContextRef.current.close();
+        } catch (e) {}
+        audioContextRef.current = null;
+      }
+    }
+  }, [soundEnabled, initAudio]);
+  
+  const fetchStockPrices = useCallback(async () => {
+    setFetchingPrices(true);
+    const newPrices = {};
+    const newChanges = {};
+    
+    for (const stock of stocks) {
+      try {
+        const finnhubResponse = await fetch(
+          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+        );
+        
+        if (finnhubResponse.ok) {
+          const finnhubData = await finnhubResponse.json();
+          if (finnhubData.c && finnhubData.c > 0) {
+            newPrices[stock.symbol] = finnhubData.c;
+            newChanges[stock.symbol] = {
+              amount: finnhubData.d || 0,
+              percent: finnhubData.dp || 0
+            };
+            continue;
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const alphaResponse = await fetch(
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
+        );
+        
+        if (alphaResponse.ok) {
+          const alphaData = await alphaResponse.json();
+          const quote = alphaData['Global Quote'];
+          if (quote && quote['05. price']) {
+            newPrices[stock.symbol] = parseFloat(quote['05. price']);
+            newChanges[stock.symbol] = {
+              amount: parseFloat(quote['09. change'] || 0),
+              percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
+            };
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching price for ${stock.symbol}:`, error);
+      }
+    }
+    
+    setRealPrices(newPrices);
+    setPriceChanges(newChanges);
+    setFetchingPrices(false);
+  }, [stocks]);
+  
+  useEffect(() => {
+    fetchStockPrices();
+    const interval = setInterval(fetchStockPrices, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStockPrices]);
+  
+  useEffect(() => {
+    const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  const handleStockCardTouch = useCallback((e, stockSymbol) => {
+    if (stockSymbol !== selectedStock) return;
+    e.preventDefault();
+    const canvas = canvasRefs.current[stockSymbol];
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const normalizedX = Math.max(0.05, Math.min(0.95, (clientX - canvasRect.left) / canvasRect.width));
+    const normalizedY = Math.max(0.1, Math.min(1.5, (clientY - canvasRect.top) / canvasRect.height));
+    setTargetPositions(prev => ({ ...prev, [stockSymbol]: { x: normalizedX, y: normalizedY } }));
+    touchingRef.current = true;
+    currentTouchStock.current = stockSymbol;
+  }, [selectedStock]);
+  
+  const handleCanvasTouchEnd = useCallback(() => {
+    touchingRef.current = false;
+    currentTouchStock.current = null;
+  }, []);
+  
+  const handleJump = useCallback(() => {
+    if (selectedStock) {
+      setSurferPositions(prev => {
+        const current = prev[selectedStock];
+        if (current.jumping) {
+          playSpinSound();
+          return {
+            ...prev,
+            [selectedStock]: {
+              ...current,
+              direction: current.direction * -1,
+              spinning: true,
+              spinCount: current.spinCount + 1
+            }
+          };
+        } else {
+          playJumpSound();
+          setTimeout(() => {
+            setSurferPositions(p => ({
+              ...p,
+              [selectedStock]: {
+                ...p[selectedStock],
+                jumping: false,
+                spinning: false,
+                spinCount: 0
+              }
+            }));
+          }, 600);
+          
+          return {
+            ...prev,
+            [selectedStock]: {
+              ...current,
+              jumping: true,
+              spinning: false,
+              spinCount: 0
+            }
+          };
+        }
+      });
+    }
+  }, [selectedStock, playJumpSound, playSpinSound]);
+  
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      keysPressed.current[e.key] = true;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      if (e.key === ' ' && selectedStock) handleJump();
+    };
+    const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [selectedStock, handleJump]);
+  
+  const createCutbackSplash = useCallback((stockSymbol, x, y) => {
+    const canvas = canvasRefs.current[stockSymbol];
+    if (!canvas) return;
+    const stock = stocks.find(s => s.symbol === stockSymbol);
+    if (!stock) return;
+    const width = canvas.width;
+    const height = canvas.height;
+    const history = stock.history;
+    const minPrice = Math.min(...history);
+    const maxPrice = Math.max(...history);
+    const priceRange = maxPrice - minPrice || 1;
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+    const historyIndex = x * (history.length - 1);
+    const index = Math.floor(historyIndex);
+    const nextIndex = Math.min(index + 1, history.length - 1);
+    const t = historyIndex - index;
+    const price = history[index] * (1 - t) + history[nextIndex] * t;
+    let baseY = normalizePrice(price) + Math.sin(x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+    const splashX = x * width;
+    const splashY = baseY + (y - 0.5) * height * 0.8;
+    const particles = [];
+    for (let i = 0; i < 25; i++) {
+      const angle = (Math.random() * Math.PI) - Math.PI / 2;
+      const speed = Math.random() * 8 + 6;
+      particles.push({ id: Date.now() + Math.random(), x: splashX, y: splashY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 3, life: 1, size: Math.random() * 5 + 3 });
+    }
+    setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...prev[stockSymbol], ...particles] }));
+    playWaterSplash();
+  }, [stocks, playWaterSplash]);
+  
+  useEffect(() => {
+    const moveInterval = setInterval(() => {
+      if (!selectedStock) return;
+      setSurferPositions(prev => {
+        const current = prev[selectedStock];
+        let newX = current.x;
+        let newY = current.y;
+        let newDirection = current.direction;
+        if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
+        const stock = stocks.find(s => s.symbol === selectedStock);
+        if (stock && !current.jumping) {
+          const canvas = canvasRefs.current[selectedStock];
+          if (canvas) {
+            const height = canvas.height;
+            const history = stock.history;
+            const minPrice = Math.min(...history);
+            const maxPrice = Math.max(...history);
+            const priceRange = maxPrice - minPrice || 1;
+            const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+            const historyIndex = current.x * (history.length - 1);
+            const index = Math.floor(historyIndex);
+            const nextIndex = Math.min(index + 1, history.length - 1);
+            const t = historyIndex - index;
+            const price = history[index] * (1 - t) + history[nextIndex] * t;
+            const waveY = normalizePrice(price) + Math.sin(current.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+            const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+            newY = Math.max(waveNormalizedY, newY);
+          }
+        }
+        const target = targetPositions[selectedStock];
+        if (target) {
+          const deltaX = target.x - current.x;
+          const deltaY = target.y - current.y;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          if (distance > 0.005) {
+            const speed = 0.08;
+            newX = current.x + (deltaX / distance) * Math.min(speed, distance);
+            const xDiff = newX - previousX.current[selectedStock];
+            if (xDiff > 0) { if (newDirection === -1) createCutbackSplash(selectedStock, newX, current.y); newDirection = 1; }
+            else if (xDiff < 0) { if (newDirection === 1) createCutbackSplash(selectedStock, newX, current.y); newDirection = -1; }
+            let targetY = current.y + (deltaY / distance) * Math.min(speed, distance);
+            if (!current.jumping && stock) {
+              const canvas = canvasRefs.current[selectedStock];
+              if (canvas) {
+                const height = canvas.height;
+                const history = stock.history;
+                const minPrice = Math.min(...history);
+                const maxPrice = Math.max(...history);
+                const priceRange = maxPrice - minPrice || 1;
+                const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+                const historyIndex = newX * (history.length - 1);
+                const index = Math.floor(historyIndex);
+                const nextIndex = Math.min(index + 1, history.length - 1);
+                const t = historyIndex - index;
+                const price = history[index] * (1 - t) + history[nextIndex] * t;
+                const waveY = normalizePrice(price) + Math.sin(newX * Math.PI * 4 - timeRef.current * 0.06) * 8;
+                const waveNormalizedY = 0.5 + ((waveY - (height * 0.5)) / (height * 0.8));
+                targetY = Math.max(waveNormalizedY, targetY);
+              }
+            }
+            newY = targetY;
+          } else if (!touchingRef.current || currentTouchStock.current !== selectedStock) {
+            setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+          }
+        }
+        
+        if (isStalling) {
+          if (Math.random() > 0.5) {
+            createCutbackSplash(selectedStock, newX, current.y);
+            newDirection = newDirection * -1;
+          }
+        }
+        
+        if (keysPressed.current['ArrowLeft']) {
+          const oldX = newX;
+          newX = Math.max(0.05, newX - 0.02);
+          if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX < oldX) newDirection = -1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowRight']) {
+          const oldX = newX;
+          newX = Math.min(0.95, newX + 0.02);
+          if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
+          if (newX > oldX) newDirection = 1;
+          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
+        }
+        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        previousX.current[selectedStock] = newX;
+        return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
+      });
+    }, 16);
+    return () => clearInterval(moveInterval);
+  }, [selectedStock, targetPositions, stocks, createCutbackSplash, isStalling]);
+  
+  useEffect(() => {
+    const trailInterval = setInterval(() => {
+      stocks.forEach(stock => {
+        const surferPos = surferPositions[stock.symbol];
+        const canvas = canvasRefs.current[stock.symbol];
+        if (!canvas || !surferPos) return;
+        const width = canvas.width;
+        const height = canvas.height;
+        const history = stock.history;
+        const minPrice = Math.min(...history);
+        const maxPrice = Math.max(...history);
+        const priceRange = maxPrice - minPrice || 1;
+        const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+        const historyIndex = surferPos.x * (history.length - 1);
+        const index = Math.floor(historyIndex);
+        const nextIndex = Math.min(index + 1, history.length - 1);
+        const t = historyIndex - index;
+        const price = history[index] * (1 - t) + history[nextIndex] * t;
+        const baseY = normalizePrice(price) + Math.sin(surferPos.x * Math.PI * 4 - timeRef.current * 0.06) * 8;
+        const surferX = surferPos.x * width;
+        const surferY = baseY - 15 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8;
+        for (let i = 0; i < 2; i++) {
+          const spreadAngle = (Math.random() - 0.5) * Math.PI / 3;
+          const speed = Math.random() * 3 + 2;
+          setWaterTrails(prev => ({ ...prev, [stock.symbol]: [...prev[stock.symbol], {
+            id: Date.now() + Math.random(), x: surferX, y
