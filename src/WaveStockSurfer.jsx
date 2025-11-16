@@ -82,11 +82,6 @@ const WaveStockSurfer = () => {
   const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   const touchingRef = useRef(false);
   const currentTouchStock = useRef(null);
-  const [draggedStock, setDraggedStock] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
-  const touchStartY = useRef(null);
-  const touchStartIndex = useRef(null);
-  const isDraggingCard = useRef(false);
   
   const initAudio = useCallback(() => {
     if (audioContextRef.current) return;
