@@ -17,15 +17,15 @@ const WaveStockSurfer = () => {
   
   const characters = useMemo(() => [
     { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
-    { id: 'vegeta', name: 'Surf Ninja', emoji: '🥷', unlocked: true, color: '#4ECDC4', invertDirection: true },
-    { id: 'gohan', name: 'Wave Dolphin', emoji: '🐬', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D', invertDirection: false },
-    { id: 'piccolo', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
+    { id: 'vegeta', name: 'Storm Rider', emoji: '🥷', unlocked: true, color: '#4ECDC4', invertDirection: true },
+    { id: 'gohan', name: 'Tide Master', emoji: '🐬', unlocked: false, unlock: 'Reach 5 streak', color: '#FFE66D', invertDirection: false },
+    { id: 'piccolo', name: 'Foam Ninja', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
     { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
     { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
-    { id: 'dolphin', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
-    { id: 'cat', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
-    { id: 'unicorn', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
-    { id: 'wolf', name: 'Storm Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
+    { id: 'dolphin', name: 'Wave Dolphin', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
+    { id: 'cat', name: 'Surf Cat', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
+    { id: 'unicorn', name: 'Magic Unicorn', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
+    { id: 'wolf', name: 'Lone Wolf Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
@@ -360,7 +360,20 @@ const WaveStockSurfer = () => {
     const minPrice = Math.min(...history);
     const maxPrice = Math.max(...history);
     const priceRange = maxPrice - minPrice || 1;
-    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5;
+    
+    // Adjust wave position based on real price
+    const realPrice = realPrices[stock.symbol];
+    const priceChange = priceChanges[stock.symbol];
+    let priceOffset = 0;
+    
+    if (realPrice && priceChange) {
+      // Subtle vertical shift based on price change percentage
+      // Positive = wave slightly higher, Negative = wave slightly lower
+      // Limited to +/- 15 pixels to keep it subtle
+      priceOffset = Math.max(-15, Math.min(15, priceChange.percent * 2));
+    }
+    
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - priceOffset;
     const offset = time * 0.02;
     const points = [];
     for (let i = 0; i < 60; i++) {
