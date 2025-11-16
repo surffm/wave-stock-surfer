@@ -116,46 +116,39 @@ const WaveStockSurfer = () => {
     const ctx = audioContextRef.current;
     const now = ctx.currentTime;
 
+    // Short white noise burst
     const bufferSize = ctx.sampleRate * 0.1;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
-
-    const sprayRandom = 0.8 + Math.random() * 0.5;
-
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.9 * sprayRandom;
+      data[i] = (Math.random() * 2 - 1) * 0.2; // softer than before
     }
 
     const noise = ctx.createBufferSource();
     noise.buffer = buffer;
 
-    // Bright edge of spray
-    const highPass = ctx.createBiquadFilter();
-    highPass.type = "highpass";
-    highPass.frequency.value = 1600 + Math.random() * 1000;
+    // Filter to blend with ocean
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(900 + Math.random() * 300, now); // slightly randomize
+    filter.Q.value = 0.8; // smoother than splash
 
-    // Body of splash
-    const lowPass = ctx.createBiquadFilter();
-    lowPass.type = "lowpass";
-    lowPass.frequency.value = 3500 + Math.random() * 2000;
-
+    // Gain with quick volume bump
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.5 * sprayRandom, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.linearRampToValueAtTime(0.15, now + 0.05); // quick rise
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); // fade out
 
-    noise.connect(highPass);
-    highPass.connect(lowPass);
-    lowPass.connect(gain);
+    noise.connect(filter);
+    filter.connect(gain);
     gain.connect(masterGainRef.current);
 
     noise.start(now);
-    noise.stop(now + 0.25);
-
-  } catch (err) {
-    console.error("Splash error:", err);
+    noise.stop(now + 0.2);
+  } catch (error) {
+    console.error("Water splash playback error:", error);
   }
 }, [soundEnabled]);
-
   
   const playJumpSound = useCallback(() => {
     if (!soundEnabled || !audioContextRef.current) return;
