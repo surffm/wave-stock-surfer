@@ -82,6 +82,11 @@ const WaveStockSurfer = () => {
   const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   const touchingRef = useRef(false);
   const currentTouchStock = useRef(null);
+  const [draggedStock, setDraggedStock] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const touchStartY = useRef(null);
+  const touchStartIndex = useRef(null);
+  const isDraggingCard = useRef(false);
   
   const initAudio = useCallback(() => {
     if (audioContextRef.current) return;
@@ -993,54 +998,6 @@ const WaveStockSurfer = () => {
     setDragOverIndex(null);
   }, []);
 
-  const handleTouchStartCard = useCallback((e, index) => {
-    const touch = e.touches[0];
-    touchStartY.current = touch.clientY;
-    touchStartIndex.current = index;
-    isDraggingCard.current = false;
-    
-    setTimeout(() => {
-      if (touchStartY.current !== null) {
-        isDraggingCard.current = true;
-        setDraggedStock(index);
-      }
-    }, 200);
-  }, []);
-
-  const handleTouchMoveCard = useCallback((e, currentIndex) => {
-    if (!isDraggingCard.current || touchStartIndex.current === null) return;
-    
-    e.preventDefault();
-    const touch = e.touches[0];
-    const deltaY = touch.clientY - touchStartY.current;
-    
-    if (Math.abs(deltaY) > 50) {
-      const direction = deltaY > 0 ? 1 : -1;
-      const newIndex = touchStartIndex.current + direction;
-      
-      if (newIndex >= 0 && newIndex < stocks.length && newIndex !== currentIndex) {
-        setDragOverIndex(newIndex);
-      }
-    }
-  }, [stocks.length]);
-
-  const handleTouchEndCard = useCallback(() => {
-    if (isDraggingCard.current && touchStartIndex.current !== null && dragOverIndex !== null) {
-      setStocks(prev => {
-        const newStocks = [...prev];
-        const [draggedItem] = newStocks.splice(touchStartIndex.current, 1);
-        newStocks.splice(dragOverIndex, 0, draggedItem);
-        return newStocks;
-      });
-    }
-    
-    touchStartY.current = null;
-    touchStartIndex.current = null;
-    isDraggingCard.current = false;
-    setDraggedStock(null);
-    setDragOverIndex(null);
-  }, [dragOverIndex]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
@@ -1365,67 +1322,48 @@ const WaveStockSurfer = () => {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, index)}
                 onDragEnd={handleDragEnd}
-                onClick={() => !isDraggingCard.current && setSelectedStock(stock.symbol)}
+                onClick={() => setSelectedStock(stock.symbol)}
+                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchEnd={handleCanvasTouchEnd}
                 className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-move relative select-none ${
                   isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
                 } ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-blue-400 scale-105' : ''}`}
+                style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
-                <div
-                  onTouchStart={(e) => {
+                <button
+                  onClick={(e) => {
                     e.stopPropagation();
-                    handleTouchStartCard(e, index);
+                    removeStock(stock.symbol);
                   }}
-                  onTouchMove={(e) => {
-                    e.stopPropagation();
-                    handleTouchMoveCard(e, index);
-                  }}
-                  onTouchEnd={(e) => {
-                    e.stopPropagation();
-                    handleTouchEndCard();
-                  }}
-                  className="cursor-move touch-none"
+                  className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors z-10"
                 >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeStock(stock.symbol);
-                    }}
-                    className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors z-10"
-                  >
-                    <X size={20} />
-                  </button>
-                  
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white/50 cursor-move">⋮⋮</span>
-                        <h3 className="text-3xl font-bold text-white">{stock.symbol}</h3>
-                        {isSelected && <span className="text-green-400 text-sm font-bold">● ACTIVE</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">{char?.emoji}</span>
-                        <div className="text-right">
-                          <div className="text-xs text-blue-300">{char?.name}</div>
-                        </div>
+                  <X size={20} />
+                </button>
+                
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/50 cursor-move">⋮⋮</span>
+                      <h3 className="text-3xl font-bold text-white">{stock.symbol}</h3>
+                      {isSelected && <span className="text-green-400 text-sm font-bold">● ACTIVE</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{char?.emoji}</span>
+                      <div className="text-right">
+                        <div className="text-xs text-blue-300">{char?.name}</div>
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                <div
-                  onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
-                  onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
-                  onTouchEnd={handleCanvasTouchEnd}
+                <canvas
+                  ref={el => canvasRefs.current[stock.symbol] = el}
+                  width={600}
+                  height={200}
+                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
                   style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-                >
-                  <canvas
-                    ref={el => canvasRefs.current[stock.symbol] = el}
-                    width={600}
-                    height={200}
-                    className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
-                    style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-                  />
-                </div>
+                />
                 
                 <div className="border-t border-white/20 pt-3">
                   <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
