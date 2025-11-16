@@ -285,33 +285,37 @@ return; // mute
   }, [soundEnabled]);
   
   const playCelebrationSound = useCallback(() => {
-    if (!soundEnabled || !audioContextRef.current) return;
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    // base chime frequencies (slightly harmonic)
+    const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
     
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      [0, 0.1, 0.2, 0.3].forEach((offset) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1046.5, now + offset);
-        osc.frequency.exponentialRampToValueAtTime(2093, now + offset + 0.15);
-        
-        gain.gain.setValueAtTime(0.15, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.2);
-        
-        osc.connect(gain);
-        gain.connect(masterGainRef.current);
-        
-        osc.start(now + offset);
-        osc.stop(now + offset + 0.2);
-      });
-    } catch (error) {
-      console.error('Sound playback error:', error);
-    }
-  }, [soundEnabled]);
+    frequencies.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.2, now + 0.5); // slow ramp
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.1 / (i+1), now + 0.05); // subtle volume layering
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1); // long fade out
+
+      osc.connect(gain);
+      gain.connect(masterGainRef.current);
+
+      osc.start(now + i * 0.1); // slight stagger
+      osc.stop(now + 1 + i * 0.1);
+    });
+  } catch (error) {
+    console.error('Sound playback error:', error);
+  }
+}, [soundEnabled]);
   
   const playPowerUpSound = useCallback(() => {
 return; // mute
