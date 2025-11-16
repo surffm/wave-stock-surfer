@@ -1369,6 +1369,31 @@ const WaveStockSurfer = () => {
           💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
         </div>
 
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('mission');
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Info size={20} />
+              Menu
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('add');
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Wave
+            </button>
+          </div>
+        </div>
+
         <div className="flex justify-center gap-4 mb-6">
           <a
             href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
