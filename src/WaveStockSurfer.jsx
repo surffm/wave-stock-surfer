@@ -6,7 +6,7 @@ const WaveStockSurfer = () => {
   const [streak, setStreak] = useState(0);
   const [multiplier, setMultiplier] = useState(1);
   const [showMenu, setShowMenu] = useState(false);
-  const [activeMenuTab, setActiveMenuTab] = useState('mission');
+  const [activeMenuTab, setActiveMenuTab] = useState('trending');
   const [powerUp, setPowerUp] = useState(null);
   const [celebration, setCelebration] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -887,7 +887,7 @@ const WaveStockSurfer = () => {
         selectedChar: 'goku'
       };
       
-      setStocks(prev => [...prev, newStockData]);
+      setStocks(prev => [newStockData, ...prev]);
       setSelectedChars(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: 'goku' }));
       setSurferPositions(prev => ({ 
         ...prev, 
@@ -915,7 +915,7 @@ const WaveStockSurfer = () => {
       selectedChar: 'goku'
     };
     
-    setStocks(prev => [...prev, newStockData]);
+    setStocks(prev => [newStockData, ...prev]);
     setSelectedChars(prev => ({ ...prev, [trendingStock.symbol]: 'goku' }));
     setSurferPositions(prev => ({ 
       ...prev, 
@@ -1049,7 +1049,7 @@ const WaveStockSurfer = () => {
             <button
               onClick={() => {
                 setShowMenu(true);
-                setActiveMenuTab('mission');
+                setActiveMenuTab('trending');
               }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
             >
@@ -1364,7 +1364,7 @@ const WaveStockSurfer = () => {
             <button
               onClick={() => {
                 setShowMenu(true);
-                setActiveMenuTab('mission');
+                setActiveMenuTab('trending');
               }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
             >
