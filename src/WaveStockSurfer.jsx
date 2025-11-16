@@ -315,7 +315,7 @@ const WaveStockSurfer = () => {
     setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...(prev[stockSymbol] || []), ...particles] }));
   }, [stocks]);
   
-  useEffect(() => {
+useEffect(() => {
     const moveInterval = setInterval(() => {
       if (!selectedStock) return;
       setSurferPositions(prev => {
@@ -325,8 +325,18 @@ const WaveStockSurfer = () => {
         let newY = current.y;
         let newDirection = current.direction;
         if (previousX.current[selectedStock] === undefined) previousX.current[selectedStock] = current.x;
+
+// Check if user is actively controlling the surfer
+const hasKeyInput = keysPressed.current['ArrowLeft'] || 
+                   keysPressed.current['ArrowRight'] || 
+                   keysPressed.current['ArrowUp'] || 
+                   keysPressed.current['ArrowDown'];
+const hasTarget = targetPositions[selectedStock] !== null;
+const isUserControlling = hasKeyInput || hasTarget || current.jumping;
+                
         const stock = stocks.find(s => s.symbol === selectedStock);
         if (stock && stock.history.length > 0 && !current.jumping) {
+
           const canvas = canvasRefs.current[selectedStock];
           if (canvas) {
             const height = canvas.height;
