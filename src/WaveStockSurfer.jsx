@@ -14,6 +14,11 @@ const WaveStockSurfer = () => {
   const [realPrices, setRealPrices] = useState({});
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  
+  const audioContextRef = useRef(null);
+  const oceanNoiseRef = useRef(null);
+  const masterGainRef = useRef(null);
   
   const characters = useMemo(() => [
     { id: 'goku', name: 'Wave Warrior', emoji: '🏄‍♂️', unlocked: true, color: '#FF6B35', invertDirection: false },
@@ -61,6 +66,261 @@ const WaveStockSurfer = () => {
   const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   const touchingRef = useRef(false);
   const currentTouchStock = useRef(null);
+  
+  const initAudio = useCallback(() => {
+    if (audioContextRef.current) return;
+    
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContext();
+      audioContextRef.current = audioCtx;
+      
+      masterGainRef.current = audioCtx.createGain();
+      masterGainRef.current.gain.value = 0.3;
+      masterGainRef.current.connect(audioCtx.destination);
+      
+      const bufferSize = audioCtx.sampleRate * 2;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.15;
+      }
+      
+      const oceanNoise = audioCtx.createBufferSource();
+      oceanNoise.buffer = buffer;
+      oceanNoise.loop = true;
+      
+      const oceanFilter = audioCtx.createBiquadFilter();
+      oceanFilter.type = 'lowpass';
+      oceanFilter.frequency.value = 800;
+      oceanFilter.Q.value = 0.5;
+      
+      const oceanGain = audioCtx.createGain();
+      oceanGain.gain.value = 0.2;
+      
+      oceanNoise.connect(oceanFilter);
+      oceanFilter.connect(oceanGain);
+      oceanGain.connect(masterGainRef.current);
+      
+      oceanNoise.start();
+      oceanNoiseRef.current = oceanNoise;
+    } catch (error) {
+      console.error('Audio initialization failed:', error);
+    }
+  }, []);
+  
+  const playWaterSplash = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+      
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      
+      osc.connect(gain);
+      gain.connect(masterGainRef.current);
+      
+      osc.start(now);
+      osc.stop(now + 0.15);
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+  
+  const playJumpSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+      
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      
+      osc.connect(gain);
+      gain.connect(masterGainRef.current);
+      
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+  
+  const playSpinSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+      
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+      
+      osc.connect(gain);
+      gain.connect(masterGainRef.current);
+      
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+  
+  const playScoreSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      [0, 0.08, 0.16].forEach((offset, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.value = [523.25, 659.25, 783.99][i];
+        
+        gain.gain.setValueAtTime(0.1, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(masterGainRef.current);
+        
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.15);
+      });
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+  
+  const playStreakSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(1760, now + 0.15);
+      
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      
+      osc.connect(gain);
+      gain.connect(masterGainRef.current);
+      
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+  
+  const playCelebrationSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      [0, 0.1, 0.2, 0.3].forEach((offset) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1046.5, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(2093, now + offset + 0.15);
+        
+        gain.gain.setValueAtTime(0.15, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.2);
+        
+        osc.connect(gain);
+        gain.connect(masterGainRef.current);
+        
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.2);
+      });
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+  
+  const playPowerUpSound = useCallback(() => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+      
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+      
+      osc.connect(gain);
+      gain.connect(masterGainRef.current);
+      
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch (error) {
+      console.error('Sound playback error:', error);
+    }
+  }, [soundEnabled]);
+  
+  const toggleSound = useCallback(() => {
+    if (!soundEnabled) {
+      initAudio();
+      setSoundEnabled(true);
+    } else {
+      setSoundEnabled(false);
+      if (oceanNoiseRef.current) {
+        try {
+          oceanNoiseRef.current.stop();
+        } catch (e) {}
+        oceanNoiseRef.current = null;
+      }
+      if (audioContextRef.current) {
+        try {
+          audioContextRef.current.close();
+        } catch (e) {}
+        audioContextRef.current = null;
+      }
+    }
+  }, [soundEnabled, initAudio]);
   
   const fetchStockPrices = useCallback(async () => {
     setFetchingPrices(true);
@@ -149,7 +409,7 @@ const WaveStockSurfer = () => {
       setSurferPositions(prev => {
         const current = prev[selectedStock];
         if (current.jumping) {
-          // Already jumping - RAPID SPIN!
+          playSpinSound();
           return {
             ...prev,
             [selectedStock]: {
@@ -160,7 +420,7 @@ const WaveStockSurfer = () => {
             }
           };
         } else {
-          // Start jump
+          playJumpSound();
           setTimeout(() => {
             setSurferPositions(p => ({
               ...p,
@@ -185,7 +445,7 @@ const WaveStockSurfer = () => {
         }
       });
     }
-  }, [selectedStock]);
+  }, [selectedStock, playJumpSound, playSpinSound]);
   
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -229,7 +489,8 @@ const WaveStockSurfer = () => {
       particles.push({ id: Date.now() + Math.random(), x: splashX, y: splashY, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 3, life: 1, size: Math.random() * 5 + 3 });
     }
     setCutbackSplashes(prev => ({ ...prev, [stockSymbol]: [...prev[stockSymbol], ...particles] }));
-  }, [stocks]);
+    playWaterSplash();
+  }, [stocks, playWaterSplash]);
   
   useEffect(() => {
     const moveInterval = setInterval(() => {
@@ -356,35 +617,38 @@ const WaveStockSurfer = () => {
   
   useEffect(() => {
     const newUnlocked = [...unlockedChars];
-    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
-    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
-    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
-    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
-    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
-    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
-    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
-    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); setCelebration(true); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
     setUnlockedChars(newUnlocked);
-  }, [streak, score, powerUpCount, unlockedChars]);
+  }, [streak, score, powerUpCount, unlockedChars, playCelebrationSound]);
   
   useEffect(() => {
     const interval = setInterval(() => {
       setScore(s => s + (Math.floor(Math.random() * 50) + 20) * multiplier);
+      playScoreSound();
       if (Math.random() > 0.3) {
         setStreak(s => {
           const newStreak = s + 1;
-          if (newStreak % 5 === 0) { setMultiplier(m => Math.min(m + 0.5, 5)); setCelebration(true); setTimeout(() => setCelebration(false), 1500); }
+          if (newStreak % 5 === 0) { setMultiplier(m => Math.min(m + 0.5, 5)); setCelebration(true); playStreakSound(); setTimeout(() => setCelebration(false), 1500); }
+          else { playStreakSound(); }
           return newStreak;
         });
       } else { setStreak(0); setMultiplier(1); }
       if (Math.random() > 0.85) {
         setPowerUp(['speed', 'glow', 'foam', 'multiplier'][Math.floor(Math.random() * 4)]);
         setPowerUpCount(c => c + 1);
+        playPowerUpSound();
         setTimeout(() => setPowerUp(null), 3000);
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [multiplier]);
+  }, [multiplier, playScoreSound, playStreakSound, playPowerUpSound]);
   
   const drawWave = useCallback((canvas, stock, time) => {
     if (!canvas) return;
@@ -457,7 +721,6 @@ const WaveStockSurfer = () => {
     const angle = Math.atan2(surferPoint.y - prevPoint.y, surferPoint.x - prevPoint.x);
     const char = characters.find(c => c.id === selectedChars[stock.symbol]);
     
-    // Spin effect with rotation and particles
     let spinRotation = 0;
     if (surferPos.spinning && surferPos.jumping) {
       spinRotation = (time * 20) % (Math.PI * 2);
@@ -481,7 +744,6 @@ const WaveStockSurfer = () => {
     ctx.fillText(char?.emoji || '🏄‍♂️', -16, 8);
     ctx.restore();
     
-    // Spin trail particles
     if (surferPos.spinning && surferPos.jumping) {
       for (let i = 0; i < 3; i++) {
         ctx.globalAlpha = 0.6;
@@ -500,7 +762,6 @@ const WaveStockSurfer = () => {
       }
     }
     
-    // Spin counter display
     if (surferPos.spinCount > 0 && surferPos.jumping && stock.symbol === selectedStock) {
       ctx.save();
       ctx.font = 'bold 24px Arial';
@@ -664,6 +925,16 @@ const WaveStockSurfer = () => {
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf! Tap jump to jump & spin rapidly!' : 'Use arrow keys to carve, SPACE to jump, keep pressing SPACE to spin rapidly!'}
           </p>
+          <button
+            onClick={toggleSound}
+            className={`mt-3 px-6 py-2 rounded-full font-bold transition-all shadow-lg ${
+              soundEnabled 
+                ? 'bg-green-500 hover:bg-green-600 text-white' 
+                : 'bg-gray-500 hover:bg-gray-600 text-white'
+            }`}
+          >
+            {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
+          </button>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -759,6 +1030,7 @@ const WaveStockSurfer = () => {
               <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
               <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
               <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+              <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
             </div>
           </div>
         )}
