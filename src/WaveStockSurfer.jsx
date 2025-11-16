@@ -116,49 +116,43 @@ const WaveStockSurfer = () => {
     const ctx = audioContextRef.current;
     const now = ctx.currentTime;
 
-    // Creates a more aggressive, spray-like white noise burst
-    const bufferSize = ctx.sampleRate * 0.12;
+    const bufferSize = ctx.sampleRate * 0.1;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
 
-    const randomness = 0.9 + Math.random() * 0.5; // extra splashy variance
+    const sprayRandom = 0.8 + Math.random() * 0.5;
 
-    // More aggressive noise (louder & more chaotic)
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.9 * randomness;
+      data[i] = (Math.random() * 2 - 1) * 0.9 * sprayRandom;
     }
 
     const noise = ctx.createBufferSource();
     noise.buffer = buffer;
 
-    // 1st filter: bright spray (high frequency nozzle-like)
-    const highFilter = ctx.createBiquadFilter();
-    highFilter.type = "highpass";
-    highFilter.frequency.value = 1800 + Math.random() * 1000; // brighter spray
-    highFilter.Q.value = 0.7;
+    // Bright edge of spray
+    const highPass = ctx.createBiquadFilter();
+    highPass.type = "highpass";
+    highPass.frequency.value = 1600 + Math.random() * 1000;
 
-    // 2nd filter: shape splash body (lowpass for fullness)
-    const bodyFilter = ctx.createBiquadFilter();
-    bodyFilter.type = "lowpass";
-    bodyFilter.frequency.value = 3500 + Math.random() * 1500; // airy spray
-    bodyFilter.Q.value = 1.5;
+    // Body of splash
+    const lowPass = ctx.createBiquadFilter();
+    lowPass.type = "lowpass";
+    lowPass.frequency.value = 3500 + Math.random() * 2000;
 
-    // Sharper splash envelope (fast attack, quick decay)
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.55 * randomness, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18); // fast splash tail
+    gain.gain.setValueAtTime(0.5 * sprayRandom, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
 
-    // Connect chain
-    noise.connect(highFilter);
-    highFilter.connect(bodyFilter);
-    bodyFilter.connect(gain);
+    noise.connect(highPass);
+    highPass.connect(lowPass);
+    lowPass.connect(gain);
     gain.connect(masterGainRef.current);
 
     noise.start(now);
-    noise.stop(now + 0.18);
+    noise.stop(now + 0.25);
 
-  } catch (error) {
-    console.error("Water splash playback error:", error);
+  } catch (err) {
+    console.error("Splash error:", err);
   }
 }, [soundEnabled]);
 
