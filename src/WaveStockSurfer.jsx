@@ -191,6 +191,7 @@ const WaveStockSurfer = () => {
   }, [soundEnabled]);
   
   const playScoreSound = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
@@ -219,6 +220,8 @@ const WaveStockSurfer = () => {
   }, [soundEnabled]);
   
   const playStreakSound = useCallback(() => {
+return; // mute
+
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
