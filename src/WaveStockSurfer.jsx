@@ -150,61 +150,84 @@ const WaveStockSurfer = () => {
   }
 }, [soundEnabled]);
   
-  const playJumpSound = useCallback(() => {
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(400, now);
-      osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
-      
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.2);
-    } catch (error) {
-      console.error('Sound playback error:', error);
+const playJumpSound = useCallback(() => {
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    const bufferSize = ctx.sampleRate * 0.12;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.18; // subtle
     }
-  }, [soundEnabled]);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1000 + Math.random() * 300, now);
+    filter.Q.value = 0.8;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.06); // soft bump
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGainRef.current);
+
+    noise.start(now);
+    noise.stop(now + 0.22);
+  } catch (error) {
+    console.error("Jump sound error:", error);
+  }
+}, [soundEnabled]);
   
   const playSpinSound = useCallback(() => {
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-      
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
-      
-      osc.connect(gain);
-      gain.connect(masterGainRef.current);
-      
-      osc.start(now);
-      osc.stop(now + 0.12);
-    } catch (error) {
-      console.error('Sound playback error:', error);
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    const bufferSize = ctx.sampleRate * 0.15;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.2; // soft
     }
-  }, [soundEnabled]);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass"; // gives a spinning “whoosh” feeling
+    filter.frequency.setValueAtTime(800 + Math.random() * 400, now);
+    filter.Q.value = 1;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.03, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + 0.05); // gentle rise
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGainRef.current);
+
+    noise.start(now);
+    noise.stop(now + 0.25);
+  } catch (error) {
+    console.error("Spin sound error:", error);
+  }
+}, [soundEnabled]);
   
   const playScoreSound = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
@@ -233,6 +256,8 @@ const WaveStockSurfer = () => {
   }, [soundEnabled]);
   
   const playStreakSound = useCallback(() => {
+return; // mute
+
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
@@ -260,35 +285,49 @@ const WaveStockSurfer = () => {
   }, [soundEnabled]);
   
   const playCelebrationSound = useCallback(() => {
-    if (!soundEnabled || !audioContextRef.current) return;
-    
-    try {
-      const ctx = audioContextRef.current;
-      const now = ctx.currentTime;
-      
-      [0, 0.1, 0.2, 0.3].forEach((offset) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1046.5, now + offset);
-        osc.frequency.exponentialRampToValueAtTime(2093, now + offset + 0.15);
-        
-        gain.gain.setValueAtTime(0.15, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.2);
-        
-        osc.connect(gain);
-        gain.connect(masterGainRef.current);
-        
-        osc.start(now + offset);
-        osc.stop(now + offset + 0.2);
-      });
-    } catch (error) {
-      console.error('Sound playback error:', error);
+  if (!soundEnabled || !audioContextRef.current) return;
+
+  try {
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+
+    const rand = (min, max) => Math.random() * (max - min) + min;
+
+    // Random number of mini coins per celebration
+    const coinCount = Math.floor(rand(3, 7));
+    let timeOffset = 0;
+
+    for (let i = 0; i < coinCount; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      // Choose wave type randomly for texture variety
+      const waveTypes = ['triangle', 'sine', 'square'];
+      osc.type = waveTypes[Math.floor(rand(0, waveTypes.length))];
+
+      const baseFreq = rand(800, 1500); // high-pitched coin
+      osc.frequency.setValueAtTime(baseFreq, now + timeOffset);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * rand(1.1, 1.4), now + timeOffset + 0.05);
+
+      gain.gain.setValueAtTime(rand(0.02, 0.05), now + timeOffset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + 0.08); // very quick decay
+
+      osc.connect(gain);
+      gain.connect(masterGainRef.current);
+
+      osc.start(now + timeOffset);
+      osc.stop(now + timeOffset + 0.08);
+
+      timeOffset += rand(0.03, 0.08); // slight random spacing between coins
     }
-  }, [soundEnabled]);
+  } catch (error) {
+    console.error('Sound playback error:', error);
+  }
+}, [soundEnabled]);
+
   
   const playPowerUpSound = useCallback(() => {
+return; // mute
     if (!soundEnabled || !audioContextRef.current) return;
     
     try {
@@ -937,7 +976,7 @@ const WaveStockSurfer = () => {
             🏄‍♂️ Wave Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
-            {isMobile ? 'Touch & hold the wave to surf! Tap jump to jump & spin rapidly!' : 'Use arrow keys to carve, SPACE to jump, keep pressing SPACE to spin rapidly!'}
+            {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
           </p>
           <button
             onClick={toggleSound}
@@ -1051,7 +1090,7 @@ const WaveStockSurfer = () => {
 
         {celebration && (
           <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
-            <div className="text-8xl animate-bounce text-center">🎉✨🏆✨🎉</div>
+            <div className="text-2xl animate-bounce text-center">🎉✨🏆✨🎉</div>
           </div>
         )}
         
