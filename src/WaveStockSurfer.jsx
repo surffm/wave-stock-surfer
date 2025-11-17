@@ -1219,11 +1219,7 @@ const WaveStockSurfer = () => {
                                     ↓
                                   </button>
                                   <button
-                                    onClick={() => {
-                                      if (window.confirm(`Remove ${stock.symbol} from your waves?`)) {
-                                        removeStock(stock.symbol);
-                                      }
-                                    }}
+                                    onClick={() => removeStock(stock.symbol)}
                                     className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-100 flex items-center justify-center transition-all"
                                     title="Remove stock"
                                   >
