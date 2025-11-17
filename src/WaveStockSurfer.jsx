@@ -340,13 +340,12 @@ const WaveStockSurfer = () => {
   }, [soundEnabled, initAudio]);
   
   const fetchStockPrices = useCallback(async () => {
-    setFetchingPrices(true);
-    
     const activeSymbols = stocks.map(s => s.symbol);
     const trendingSymbols = trendingStocks.map(s => s.symbol).filter(s => !activeSymbols.includes(s));
     const allSymbols = [...activeSymbols, ...trendingSymbols];
     
     // Try to load cached data first for instant display
+    let usedCache = false;
     try {
       const cacheResult = await window.storage.get('stock-prices-cache', true);
       if (cacheResult && cacheResult.value) {
@@ -354,21 +353,27 @@ const WaveStockSurfer = () => {
         const cacheAge = Date.now() - cachedData.timestamp;
         
         // Use cache if less than 2 minutes old
-        if (cacheAge < 120000) {
+        if (cacheAge < 120000 && cachedData.prices && cachedData.changes) {
           console.log('Using cached stock prices');
           setRealPrices(cachedData.prices);
           setPriceChanges(cachedData.changes);
-          setFetchingPrices(false);
-          return; // Exit early with cached data
+          usedCache = true;
+          
+          // Still fetch in background to update cache
+          if (cacheAge > 60000) {
+            console.log('Cache older than 1 min, refreshing in background');
+          } else {
+            return; // Exit if cache is fresh
+          }
         }
       }
     } catch (error) {
-      console.log('No cache found, fetching fresh data');
+      console.log('Cache load failed or not found:', error.message);
     }
     
-    setFetchingPrices(false);
+    // Fetch fresh data
+    setFetchingPrices(true);
     
-    // Fetch all stocks in parallel
     const allFetches = allSymbols.map(async (symbol) => {
       try {
         const controller = new AbortController();
@@ -414,21 +419,25 @@ const WaveStockSurfer = () => {
     });
     
     // Update state
-    setRealPrices(prev => ({ ...prev, ...newPrices }));
-    setPriceChanges(prev => ({ ...prev, ...newChanges }));
-    
-    // Cache the data for future visitors
-    try {
-      const cacheData = {
-        prices: newPrices,
-        changes: newChanges,
-        timestamp: Date.now()
-      };
-      await window.storage.set('stock-prices-cache', JSON.stringify(cacheData), true);
-      console.log('Cached stock prices for future visitors');
-    } catch (error) {
-      console.error('Failed to cache stock prices:', error);
+    if (Object.keys(newPrices).length > 0) {
+      setRealPrices(prev => ({ ...prev, ...newPrices }));
+      setPriceChanges(prev => ({ ...prev, ...newChanges }));
+      
+      // Cache the data for future visitors
+      try {
+        const cacheData = {
+          prices: newPrices,
+          changes: newChanges,
+          timestamp: Date.now()
+        };
+        await window.storage.set('stock-prices-cache', JSON.stringify(cacheData), true);
+        console.log('Cached stock prices for future visitors');
+      } catch (error) {
+        console.error('Failed to cache stock prices:', error);
+      }
     }
+    
+    setFetchingPrices(false);
   }, [stocks, trendingStocks]);
   
   const [stockTrends, setStockTrends] = useState({});
@@ -948,7 +957,7 @@ const WaveStockSurfer = () => {
     const realPrice = realPrices[stock.symbol];
     const change = priceChanges[stock.symbol];
     
-    if (realPrice && change) {
+    if (realPrice && change !== undefined) {
       const isPositive = change.percent >= 0;
       const priceColor = isPositive ? '#34D399' : '#F87171';
       
@@ -963,13 +972,13 @@ const WaveStockSurfer = () => {
       
       ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
       ctx.fillStyle = priceColor;
-      ctx.fillText(`${change.amount >= 0 ? '+' : ''}${Math.abs(change.amount).toFixed(2)}`, 15, 78);
-    } else {
+      ctx.fillText(`${change.amount >= 0 ? '+' : ''}${change.amount.toFixed(2)}`, 15, 78);
+    } else if (fetchingPrices) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
       ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
       ctx.fillText('Loading...', 15, 35);
     }
-  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges]);
+  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges, fetchingPrices]);
   
   useEffect(() => {
     let animationFrame;
