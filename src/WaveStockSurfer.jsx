@@ -376,7 +376,7 @@ const WaveStockSurfer = () => {
     fetchStockPrices();
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
-  }, [fetchStockPrices]);
+  }, []);
   
   // Separate effect to update colors after prices load
   useEffect(() => {
