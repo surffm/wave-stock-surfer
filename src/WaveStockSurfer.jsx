@@ -16,7 +16,6 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [originalColors, setOriginalColors] = useState({});
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -51,8 +50,6 @@ const WaveStockSurfer = () => {
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
-  const greenColors = useMemo(() => ['#34D399', '#10B981', '#14B8A6', '#22C55E', '#4ADE80'], []);
-  const nonGreenColors = useMemo(() => ['#60A5FA', '#F87171', '#FBBF24', '#A78BFA', '#EC4899'], []);
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
   
@@ -73,15 +70,6 @@ const WaveStockSurfer = () => {
   ], [generatePriceHistory]);
   
   const [stocks, setStocks] = useState(initialStocks);
-  
-  useEffect(() => {
-    const origColors = {};
-    initialStocks.forEach(stock => {
-      origColors[stock.symbol] = stock.color;
-    });
-    setOriginalColors(origColors);
-  }, [initialStocks]);
-  
   const [selectedStock, setSelectedStock] = useState('GME');
   const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
   const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, direction: 1, spinning: false, spinCount: 0 } }), {}));
@@ -327,78 +315,107 @@ const WaveStockSurfer = () => {
     const newPrices = {};
     const newChanges = {};
     
-    for (const stock of stocks) {
+    // Fetch active stocks first for fast loading
+    const activeSymbols = stocks.map(s => s.symbol);
+    const trendingSymbols = trendingStocks.map(s => s.symbol).filter(s => !activeSymbols.includes(s));
+    
+    // Priority 1: Fetch active wave stocks immediately
+    for (const symbol of activeSymbols) {
       try {
         const finnhubResponse = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
         );
         
         if (finnhubResponse.ok) {
           const finnhubData = await finnhubResponse.json();
           if (finnhubData.c && finnhubData.c > 0) {
-            newPrices[stock.symbol] = finnhubData.c;
-            newChanges[stock.symbol] = {
+            newPrices[symbol] = finnhubData.c;
+            newChanges[symbol] = {
               amount: finnhubData.d || 0,
               percent: finnhubData.dp || 0
             };
+            // Update state immediately for active stocks
+            setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
+            setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
             continue;
           }
         }
         
         await new Promise(resolve => setTimeout(resolve, 200));
         const alphaResponse = await fetch(
-          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
         );
         
         if (alphaResponse.ok) {
           const alphaData = await alphaResponse.json();
           const quote = alphaData['Global Quote'];
           if (quote && quote['05. price']) {
-            newPrices[stock.symbol] = parseFloat(quote['05. price']);
-            newChanges[stock.symbol] = {
+            const price = parseFloat(quote['05. price']);
+            const change = {
               amount: parseFloat(quote['09. change'] || 0),
               percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
             };
+            newPrices[symbol] = price;
+            newChanges[symbol] = change;
+            // Update state immediately for active stocks
+            setRealPrices(prev => ({ ...prev, [symbol]: price }));
+            setPriceChanges(prev => ({ ...prev, [symbol]: change }));
           }
         }
       } catch (error) {
-        console.error(`Error fetching price for ${stock.symbol}:`, error);
+        console.error(`Error fetching price for ${symbol}:`, error);
       }
     }
     
-    setRealPrices(newPrices);
-    setPriceChanges(newChanges);
-    setFetchingPrices(false);
-    
-    // Update wave colors based on price changes
-    setStocks(prevStocks => {
-      return prevStocks.map(stock => {
-        const change = newChanges[stock.symbol];
-        if (change) {
-          const isPositive = change.percent >= 0;
-          const currentColor = stock.color;
+    // Priority 2: Fetch trending stocks in background (only if menu is open)
+    setTimeout(async () => {
+      for (const symbol of trendingSymbols) {
+        try {
+          const finnhubResponse = await fetch(
+            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+          );
           
-          // Check if current color is green
-          const isCurrentlyGreen = greenColors.includes(currentColor);
-          
-          if (isPositive && !isCurrentlyGreen) {
-            // Stock is positive but wave isn't green - change to green
-            return { ...stock, color: greenColors[Math.floor(Math.random() * greenColors.length)] };
-          } else if (!isPositive && isCurrentlyGreen) {
-            // Stock is negative but wave is green - change to non-green
-            return { ...stock, color: nonGreenColors[Math.floor(Math.random() * nonGreenColors.length)] };
+          if (finnhubResponse.ok) {
+            const finnhubData = await finnhubResponse.json();
+            if (finnhubData.c && finnhubData.c > 0) {
+              setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
+              setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
+              continue;
+            }
           }
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const alphaResponse = await fetch(
+            `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
+          );
+          
+          if (alphaResponse.ok) {
+            const alphaData = await alphaResponse.json();
+            const quote = alphaData['Global Quote'];
+            if (quote && quote['05. price']) {
+              const price = parseFloat(quote['05. price']);
+              const change = {
+                amount: parseFloat(quote['09. change'] || 0),
+                percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
+              };
+              setRealPrices(prev => ({ ...prev, [symbol]: price }));
+              setPriceChanges(prev => ({ ...prev, [symbol]: change }));
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching price for ${symbol}:`, error);
         }
-        return stock;
-      });
-    });
-  }, [stocks, greenColors, nonGreenColors]);
+      }
+    }, 100);
+    
+    setFetchingPrices(false);
+  }, [stocks, trendingStocks]);
   
   useEffect(() => {
     fetchStockPrices();
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
-  }, [stocks, fetchStockPrices]);
+  }, [fetchStockPrices]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -931,7 +948,6 @@ const WaveStockSurfer = () => {
       setWaterTrails(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setCutbackSplashes(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setTargetPositions(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: null }));
-      setOriginalColors(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: newStock.color }));
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
       setShowAddForm(false);
@@ -960,7 +976,6 @@ const WaveStockSurfer = () => {
     setWaterTrails(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setCutbackSplashes(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setTargetPositions(prev => ({ ...prev, [trendingStock.symbol]: null }));
-    setOriginalColors(prev => ({ ...prev, [trendingStock.symbol]: trendingStock.color }));
   }, [stocks, generatePriceHistory]);
 
   const removeStock = useCallback((symbol) => {
@@ -1180,6 +1195,11 @@ const WaveStockSurfer = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {trendingStocks.map(stock => {
                         const isAdded = stocks.some(s => s.symbol === stock.symbol);
+                        const realPrice = realPrices[stock.symbol];
+                        const change = priceChanges[stock.symbol];
+                        const isPositive = change && change.percent >= 0;
+                        const priceColor = isPositive ? '#34D399' : '#F87171';
+                        
                         return (
                           <button
                             key={stock.symbol}
@@ -1200,9 +1220,30 @@ const WaveStockSurfer = () => {
                               <span className="text-2xl font-bold text-white">{stock.symbol}</span>
                               {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
                             </div>
-                            <div className="text-sm text-blue-200">{stock.name}</div>
+                            <div className="text-sm text-blue-200 mb-2">{stock.name}</div>
+                            
+                            {realPrice && change ? (
+                              <div className="space-y-1 mb-2">
+                                <div className="text-lg font-bold text-white">
+                                  ${realPrice.toFixed(2)}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span style={{ color: priceColor }} className="font-bold">
+                                    {isPositive ? '↑' : '↓'} {Math.abs(change.percent).toFixed(2)}%
+                                  </span>
+                                  <span style={{ color: priceColor }} className="text-xs">
+                                    {change.amount >= 0 ? '+' : ''}{change.amount.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-blue-300/60 mb-2">
+                                {fetchingPrices ? 'Loading...' : 'Price data unavailable'}
+                              </div>
+                            )}
+                            
                             <div 
-                              className="w-full h-2 rounded-full mt-2" 
+                              className="w-full h-2 rounded-full" 
                               style={{ backgroundColor: stock.color }}
                             />
                           </button>
@@ -1284,7 +1325,7 @@ const WaveStockSurfer = () => {
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
                         <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
-                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. Green waves indicate positive stocks, other colors show negative ones!</p>
+                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
                       </div>
                     </div>
                   </div>
@@ -1296,7 +1337,7 @@ const WaveStockSurfer = () => {
                       🌊 Our Mission 🏄‍♂️
                     </h2>
                     <div className="space-y-3 text-blue-100 text-base">
-                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! �️</p>
                       <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
                       <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
                       <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
