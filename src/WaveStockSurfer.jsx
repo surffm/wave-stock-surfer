@@ -930,13 +930,10 @@ const WaveStockSurfer = () => {
     setStocks(prev => {
       const filtered = prev.filter(s => s.symbol !== symbol);
       
-      // If removing the selected stock, select another one
       if (selectedStock === symbol) {
         if (filtered.length > 0) {
-          // Select the first remaining stock
           setSelectedStock(filtered[0].symbol);
         } else {
-          // No stocks left
           setSelectedStock(null);
         }
       }
@@ -1103,12 +1100,12 @@ const WaveStockSurfer = () => {
         </div>
         
         {showMenu && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="flex border-b border-white/20">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={() => setShowMenu(false)}>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex border-b border-white/20 flex-shrink-0">
                 <button
                   onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
                     activeMenuTab === 'mywaves' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1118,7 +1115,7 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1128,7 +1125,7 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1138,7 +1135,7 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1148,7 +1145,7 @@ const WaveStockSurfer = () => {
                 </button>
               </div>
               
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1">
                 {activeMenuTab === 'mywaves' && (
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white">🌊 My Waves</h2>
@@ -1410,10 +1407,10 @@ const WaveStockSurfer = () => {
                 )}
               </div>
               
-              <div className="border-t border-white/20 p-4 bg-black/20">
+              <div className="border-t border-white/20 p-3 sm:p-4 bg-black/20 flex-shrink-0">
                 <button
                   onClick={() => setShowMenu(false)}
-                  className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                  className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors text-base sm:text-lg"
                 >
                   Close Menu
                 </button>
