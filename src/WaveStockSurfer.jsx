@@ -996,7 +996,7 @@ const WaveStockSurfer = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            Stock Surf 🌊
+            Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
@@ -1125,16 +1125,6 @@ const WaveStockSurfer = () => {
                   }`}
                 >
                   🔥 Trending
-                </button>
-                <button
-                  onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'add' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  ➕ Add Wave
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
