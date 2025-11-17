@@ -1082,7 +1082,7 @@ const WaveStockSurfer = () => {
             <button
               onClick={() => {
                 setShowMenu(true);
-                setActiveMenuTab('mywaves');
+                setActiveMenuTab('trending');
               }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
             >
