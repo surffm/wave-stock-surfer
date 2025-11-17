@@ -927,7 +927,23 @@ const WaveStockSurfer = () => {
   }, [stocks, generatePriceHistory]);
 
   const removeStock = useCallback((symbol) => {
-    setStocks(prev => prev.filter(s => s.symbol !== symbol));
+    setStocks(prev => {
+      const filtered = prev.filter(s => s.symbol !== symbol);
+      
+      // If removing the selected stock, select another one
+      if (selectedStock === symbol) {
+        if (filtered.length > 0) {
+          // Select the first remaining stock
+          setSelectedStock(filtered[0].symbol);
+        } else {
+          // No stocks left
+          setSelectedStock(null);
+        }
+      }
+      
+      return filtered;
+    });
+    
     setSelectedChars(prev => {
       const newChars = { ...prev };
       delete newChars[symbol];
@@ -953,10 +969,7 @@ const WaveStockSurfer = () => {
       delete newTargets[symbol];
       return newTargets;
     });
-    if (selectedStock === symbol) {
-      setSelectedStock(stocks[0]?.symbol || null);
-    }
-  }, [selectedStock, stocks]);
+  }, [selectedStock]);
 
   const moveStockUp = useCallback((symbol) => {
     setStocks(prev => {
@@ -1287,7 +1300,24 @@ const WaveStockSurfer = () => {
         )}
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {stocks.map((stock, index) => {
+          {stocks.length === 0 ? (
+            <div className="col-span-full bg-white/10 backdrop-blur-md rounded-2xl p-12 border-2 border-white/20 text-center">
+              <div className="text-6xl mb-4">🌊</div>
+              <h3 className="text-2xl font-bold text-white mb-2">No waves yet!</h3>
+              <p className="text-blue-200 mb-6">Add some stocks to start surfing</p>
+              <button
+                onClick={() => {
+                  setShowMenu(true);
+                  setActiveMenuTab('trending');
+                }}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-full inline-flex items-center gap-2 transition-all shadow-lg"
+              >
+                <Plus size={20} />
+                Add Your First Wave
+              </button>
+            </div>
+          ) : (
+            stocks.map((stock, index) => {
             const char = getCharacter(selectedChars[stock.symbol]);
             const isSelected = selectedStock === stock.symbol;
             
@@ -1407,7 +1437,7 @@ const WaveStockSurfer = () => {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
         
         <div className="text-center text-blue-200 text-sm mb-6">
