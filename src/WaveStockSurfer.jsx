@@ -6,7 +6,7 @@ const WaveStockSurfer = () => {
   const [streak, setStreak] = useState(0);
   const [multiplier, setMultiplier] = useState(1);
   const [showMenu, setShowMenu] = useState(false);
-  const [activeMenuTab, setActiveMenuTab] = useState('trending');
+  const [activeMenuTab, setActiveMenuTab] = useState('mywaves');
   const [powerUp, setPowerUp] = useState(null);
   const [celebration, setCelebration] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1082,7 +1082,7 @@ const WaveStockSurfer = () => {
             <button
               onClick={() => {
                 setShowMenu(true);
-                setActiveMenuTab('trending');
+                setActiveMenuTab('mywaves');
               }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
             >
@@ -1107,6 +1107,16 @@ const WaveStockSurfer = () => {
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
+                  onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'mywaves' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🌊 My Waves
+                </button>
+                <button
                   onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'trending' 
@@ -1117,19 +1127,9 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
-                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
+                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'trending' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  🌊 My Waves
-                </button>
-                <button
-                  onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'add' 
+                    activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
@@ -1149,7 +1149,7 @@ const WaveStockSurfer = () => {
               </div>
               
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-                {activeMenuTab === 'trending' && (
+                {activeMenuTab === 'mywaves' && (
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white">🌊 My Waves</h2>
                     <p className="text-blue-200 mb-4">Manage your current stock waves</p>
@@ -1219,7 +1219,11 @@ const WaveStockSurfer = () => {
                                     ↓
                                   </button>
                                   <button
-                                    onClick={() => removeStock(stock.symbol)}
+                                    onClick={() => {
+                                      if (window.confirm(`Remove ${stock.symbol} from your waves?`)) {
+                                        removeStock(stock.symbol);
+                                      }
+                                    }}
                                     className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-100 flex items-center justify-center transition-all"
                                     title="Remove stock"
                                   >
@@ -1437,7 +1441,7 @@ const WaveStockSurfer = () => {
               <button
                 onClick={() => {
                   setShowMenu(true);
-                  setActiveMenuTab('trending');
+                  setActiveMenuTab('mywaves');
                 }}
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-full inline-flex items-center gap-2 transition-all shadow-lg"
               >
@@ -1578,7 +1582,7 @@ const WaveStockSurfer = () => {
             <button
               onClick={() => {
                 setShowMenu(true);
-                setActiveMenuTab('trending');
+                setActiveMenuTab('mywaves');
               }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
             >
