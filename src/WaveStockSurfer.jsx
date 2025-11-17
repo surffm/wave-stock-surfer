@@ -16,6 +16,49 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const hasFetchedInitial = useRef(false);
+  
+  // Initialize with cached data immediately on mount
+  useEffect(() => {
+    const loadCachedData = async () => {
+      try {
+        const cacheResult = await window.storage.get('stock-prices-cache', true);
+        if (cacheResult && cacheResult.value) {
+          const cachedData = JSON.parse(cacheResult.value);
+          if (cachedData.prices && cachedData.changes) {
+            console.log('Loaded cached prices instantly');
+            setRealPrices(cachedData.prices);
+            setPriceChanges(cachedData.changes);
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('No cache available, will fetch fresh data');
+      }
+      
+      // If no cache, initialize with placeholder data
+      const placeholderPrices = {
+        'GME': 25.50, 'AAPL': 178.20, 'GOOGL': 142.30, 'TSLA': 248.50,
+        'NVDA': 495.20, 'MSFT': 378.90, 'AMZN': 145.80, 'META': 312.50,
+        'NFLX': 445.30, 'AMD': 138.70, 'COIN': 98.40, 'PLTR': 22.60,
+        'RIVN': 14.20, 'SHOP': 68.90, 'SQ': 72.30, 'UBER': 62.80
+      };
+      
+      const placeholderChanges = {};
+      Object.keys(placeholderPrices).forEach(symbol => {
+        const randomChange = (Math.random() - 0.5) * 4;
+        placeholderChanges[symbol] = {
+          amount: randomChange,
+          percent: (randomChange / placeholderPrices[symbol]) * 100
+        };
+      });
+      
+      setRealPrices(placeholderPrices);
+      setPriceChanges(placeholderChanges);
+    };
+    
+    loadCachedData();
+  }, []);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
