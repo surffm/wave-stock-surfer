@@ -315,22 +315,17 @@ const WaveStockSurfer = () => {
     const newPrices = {};
     const newChanges = {};
     
-    const allSymbols = [...new Set([
-      ...stocks.map(s => s.symbol),
-      ...trendingStocks.map(s => s.symbol)
-    ])];
-    
-    for (const symbol of allSymbols) {
+    for (const stock of stocks) {
       try {
         const finnhubResponse = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
         );
         
         if (finnhubResponse.ok) {
           const finnhubData = await finnhubResponse.json();
           if (finnhubData.c && finnhubData.c > 0) {
-            newPrices[symbol] = finnhubData.c;
-            newChanges[symbol] = {
+            newPrices[stock.symbol] = finnhubData.c;
+            newChanges[stock.symbol] = {
               amount: finnhubData.d || 0,
               percent: finnhubData.dp || 0
             };
@@ -340,29 +335,29 @@ const WaveStockSurfer = () => {
         
         await new Promise(resolve => setTimeout(resolve, 200));
         const alphaResponse = await fetch(
-          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
         );
         
         if (alphaResponse.ok) {
           const alphaData = await alphaResponse.json();
           const quote = alphaData['Global Quote'];
           if (quote && quote['05. price']) {
-            newPrices[symbol] = parseFloat(quote['05. price']);
-            newChanges[symbol] = {
+            newPrices[stock.symbol] = parseFloat(quote['05. price']);
+            newChanges[stock.symbol] = {
               amount: parseFloat(quote['09. change'] || 0),
               percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
             };
           }
         }
       } catch (error) {
-        console.error(`Error fetching price for ${symbol}:`, error);
+        console.error(`Error fetching price for ${stock.symbol}:`, error);
       }
     }
     
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
     setFetchingPrices(false);
-  }, [stocks, trendingStocks]);
+  }, [stocks]);
   
   useEffect(() => {
     fetchStockPrices();
@@ -1148,11 +1143,6 @@ const WaveStockSurfer = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {trendingStocks.map(stock => {
                         const isAdded = stocks.some(s => s.symbol === stock.symbol);
-                        const realPrice = realPrices[stock.symbol];
-                        const change = priceChanges[stock.symbol];
-                        const isPositive = change && change.percent >= 0;
-                        const priceColor = isPositive ? '#34D399' : '#F87171';
-                        
                         return (
                           <button
                             key={stock.symbol}
@@ -1173,30 +1163,9 @@ const WaveStockSurfer = () => {
                               <span className="text-2xl font-bold text-white">{stock.symbol}</span>
                               {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
                             </div>
-                            <div className="text-sm text-blue-200 mb-2">{stock.name}</div>
-                            
-                            {realPrice && change ? (
-                              <div className="space-y-1 mb-2">
-                                <div className="text-lg font-bold text-white">
-                                  ${realPrice.toFixed(2)}
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span style={{ color: priceColor }} className="font-bold">
-                                    {isPositive ? '↑' : '↓'} {Math.abs(change.percent).toFixed(2)}%
-                                  </span>
-                                  <span style={{ color: priceColor }} className="text-xs">
-                                    {change.amount >= 0 ? '+' : ''}{change.amount.toFixed(2)}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-xs text-blue-300/60 mb-2">
-                                {fetchingPrices ? 'Loading...' : 'Price data unavailable'}
-                              </div>
-                            )}
-                            
+                            <div className="text-sm text-blue-200">{stock.name}</div>
                             <div 
-                              className="w-full h-2 rounded-full" 
+                              className="w-full h-2 rounded-full mt-2" 
                               style={{ backgroundColor: stock.color }}
                             />
                           </button>
@@ -1290,7 +1259,7 @@ const WaveStockSurfer = () => {
                       🌊 Our Mission 🏄‍♂️
                     </h2>
                     <div className="space-y-3 text-blue-100 text-base">
-                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! �️</p>
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
                       <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
                       <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
                       <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
