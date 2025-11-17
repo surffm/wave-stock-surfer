@@ -440,29 +440,45 @@ const WaveStockSurfer = () => {
     setFetchingPrices(false);
   }, [stocks, trendingStocks]);
   
+  const [stockTrends, setStockTrends] = useState({});
+  
+  useEffect(() => {
+    Object.keys(priceChanges).forEach(symbol => {
+      const change = priceChanges[symbol];
+      if (change && change.percent !== undefined) {
+        const isUp = change.percent >= 0;
+        const newTrend = isUp ? 'up' : 'down';
+        
+        setStockTrends(prev => {
+          if (prev[symbol] !== newTrend) {
+            return { ...prev, [symbol]: newTrend };
+          }
+          return prev;
+        });
+      }
+    });
+  }, [priceChanges]);
+  
   useEffect(() => {
     setStocks(prevStocks => 
       prevStocks.map(stock => {
-        const change = priceChanges[stock.symbol];
-        if (change && change.percent !== undefined) {
-          const isUp = change.percent >= 0;
-          const currentTrend = stock.trend || 'neutral';
-          const newTrend = isUp ? 'up' : 'down';
-          
-          // Only update if trend changed
-          if (currentTrend !== newTrend) {
-            return {
-              ...stock,
-              color: getColorForStock(stock.symbol, isUp),
-              history: generatePriceHistory(stock.history[0], 0.03, 50, isUp ? 1 : -1),
-              trend: newTrend
-            };
-          }
+        const newTrend = stockTrends[stock.symbol];
+        const currentTrend = stock.trend || 'neutral';
+        
+        // Only update if trend exists and changed
+        if (newTrend && currentTrend !== newTrend) {
+          const isUp = newTrend === 'up';
+          return {
+            ...stock,
+            color: getColorForStock(stock.symbol, isUp),
+            history: generatePriceHistory(stock.history[0], 0.03, 50, isUp ? 1 : -1),
+            trend: newTrend
+          };
         }
         return stock;
       })
     );
-  }, [priceChanges, getColorForStock, generatePriceHistory]);
+  }, [stockTrends, getColorForStock, generatePriceHistory]);
   
   useEffect(() => {
     fetchStockPrices();
