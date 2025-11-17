@@ -327,7 +327,8 @@ const WaveStockSurfer = () => {
     const newPrices = {};
     const newChanges = {};
     
-    for (const stock of stocks) {
+    // Fetch all stocks in parallel instead of sequentially
+    await Promise.all(stocks.map(async (stock) => {
       try {
         const finnhubResponse = await fetch(
           `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
@@ -341,11 +342,11 @@ const WaveStockSurfer = () => {
               amount: finnhubData.d || 0,
               percent: finnhubData.dp || 0
             };
-            continue;
+            return;
           }
         }
         
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Fallback to Alpha Vantage if Finnhub fails
         const alphaResponse = await fetch(
           `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
         );
@@ -364,7 +365,7 @@ const WaveStockSurfer = () => {
       } catch (error) {
         console.error(`Error fetching price for ${stock.symbol}:`, error);
       }
-    }
+    }));
     
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
