@@ -1654,7 +1654,8 @@ const WaveStockSurfer = () => {
         </div>
         
         <div className="text-center text-blue-200 text-sm mb-6">
-          💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
+          <div>💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!</div>
+          <div className="mt-2 text-xs opacity-75">This site is for entertainment purposes only and does not provide financial advice.</div>
         </div>
 
         <div className="text-center mb-6">
