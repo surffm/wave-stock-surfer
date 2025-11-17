@@ -327,8 +327,10 @@ const WaveStockSurfer = () => {
     const newPrices = {};
     const newChanges = {};
     
+    const currentStocks = stocks;
+    
     // Fetch all stocks in parallel instead of sequentially
-    await Promise.all(stocks.map(async (stock) => {
+    await Promise.all(currentStocks.map(async (stock) => {
       try {
         const finnhubResponse = await fetch(
           `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
@@ -370,7 +372,7 @@ const WaveStockSurfer = () => {
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
     setFetchingPrices(false);
-  }, [stocks]);
+  }, []);
   
   useEffect(() => {
     fetchStockPrices();
