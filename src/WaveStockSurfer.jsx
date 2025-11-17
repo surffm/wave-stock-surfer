@@ -341,103 +341,94 @@ const WaveStockSurfer = () => {
   
   const fetchStockPrices = useCallback(async () => {
     setFetchingPrices(true);
-    const newPrices = {};
-    const newChanges = {};
     
-    // Fetch active stocks first for fast loading
     const activeSymbols = stocks.map(s => s.symbol);
     const trendingSymbols = trendingStocks.map(s => s.symbol).filter(s => !activeSymbols.includes(s));
+    const allSymbols = [...activeSymbols, ...trendingSymbols];
     
-    // Priority 1: Fetch active wave stocks immediately
-    for (const symbol of activeSymbols) {
+    // Try to load cached data first for instant display
+    try {
+      const cacheResult = await window.storage.get('stock-prices-cache', true);
+      if (cacheResult && cacheResult.value) {
+        const cachedData = JSON.parse(cacheResult.value);
+        const cacheAge = Date.now() - cachedData.timestamp;
+        
+        // Use cache if less than 2 minutes old
+        if (cacheAge < 120000) {
+          console.log('Using cached stock prices');
+          setRealPrices(cachedData.prices);
+          setPriceChanges(cachedData.changes);
+          setFetchingPrices(false);
+          return; // Exit early with cached data
+        }
+      }
+    } catch (error) {
+      console.log('No cache found, fetching fresh data');
+    }
+    
+    setFetchingPrices(false);
+    
+    // Fetch all stocks in parallel
+    const allFetches = allSymbols.map(async (symbol) => {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
         const finnhubResponse = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`,
+          { signal: controller.signal }
         );
+        
+        clearTimeout(timeoutId);
         
         if (finnhubResponse.ok) {
           const finnhubData = await finnhubResponse.json();
           if (finnhubData.c && finnhubData.c > 0) {
-            newPrices[symbol] = finnhubData.c;
-            newChanges[symbol] = {
-              amount: finnhubData.d || 0,
-              percent: finnhubData.dp || 0
+            return {
+              symbol,
+              price: finnhubData.c,
+              change: {
+                amount: finnhubData.d || 0,
+                percent: finnhubData.dp || 0
+              }
             };
-            // Update state immediately for active stocks
-            setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
-            setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
-            continue;
-          }
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-        const alphaResponse = await fetch(
-          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
-        );
-        
-        if (alphaResponse.ok) {
-          const alphaData = await alphaResponse.json();
-          const quote = alphaData['Global Quote'];
-          if (quote && quote['05. price']) {
-            const price = parseFloat(quote['05. price']);
-            const change = {
-              amount: parseFloat(quote['09. change'] || 0),
-              percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
-            };
-            newPrices[symbol] = price;
-            newChanges[symbol] = change;
-            // Update state immediately for active stocks
-            setRealPrices(prev => ({ ...prev, [symbol]: price }));
-            setPriceChanges(prev => ({ ...prev, [symbol]: change }));
           }
         }
       } catch (error) {
-        console.error(`Error fetching price for ${symbol}:`, error);
-      }
-    }
-    
-    // Priority 2: Fetch trending stocks in background (only if menu is open)
-    setTimeout(async () => {
-      for (const symbol of trendingSymbols) {
-        try {
-          const finnhubResponse = await fetch(
-            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
-          );
-          
-          if (finnhubResponse.ok) {
-            const finnhubData = await finnhubResponse.json();
-            if (finnhubData.c && finnhubData.c > 0) {
-              setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
-              setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
-              continue;
-            }
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 200));
-          const alphaResponse = await fetch(
-            `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
-          );
-          
-          if (alphaResponse.ok) {
-            const alphaData = await alphaResponse.json();
-            const quote = alphaData['Global Quote'];
-            if (quote && quote['05. price']) {
-              const price = parseFloat(quote['05. price']);
-              const change = {
-                amount: parseFloat(quote['09. change'] || 0),
-                percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
-              };
-              setRealPrices(prev => ({ ...prev, [symbol]: price }));
-              setPriceChanges(prev => ({ ...prev, [symbol]: change }));
-            }
-          }
-        } catch (error) {
+        if (error.name !== 'AbortError') {
           console.error(`Error fetching price for ${symbol}:`, error);
         }
       }
-    }, 100);
+      return null;
+    });
     
-    setFetchingPrices(false);
+    const results = await Promise.all(allFetches);
+    const newPrices = {};
+    const newChanges = {};
+    
+    results.forEach(result => {
+      if (result) {
+        newPrices[result.symbol] = result.price;
+        newChanges[result.symbol] = result.change;
+      }
+    });
+    
+    // Update state
+    setRealPrices(prev => ({ ...prev, ...newPrices }));
+    setPriceChanges(prev => ({ ...prev, ...newChanges }));
+    
+    // Cache the data for future visitors
+    try {
+      const cacheData = {
+        prices: newPrices,
+        changes: newChanges,
+        timestamp: Date.now()
+      };
+      await window.storage.set('stock-prices-cache', JSON.stringify(cacheData), true);
+      console.log('Cached stock prices for future visitors');
+    } catch (error) {
+      console.error('Failed to cache stock prices:', error);
+    }
   }, [stocks, trendingStocks]);
   
   const [stockTrends, setStockTrends] = useState({});
@@ -460,25 +451,28 @@ const WaveStockSurfer = () => {
   }, [priceChanges]);
   
   useEffect(() => {
-    setStocks(prevStocks => 
-      prevStocks.map(stock => {
-        const newTrend = stockTrends[stock.symbol];
-        const currentTrend = stock.trend || 'neutral';
-        
-        // Only update if trend exists and changed
-        if (newTrend && currentTrend !== newTrend) {
-          const isUp = newTrend === 'up';
-          return {
-            ...stock,
-            color: getColorForStock(stock.symbol, isUp),
-            history: generatePriceHistory(stock.history[0], 0.03, 50, isUp ? 1 : -1),
-            trend: newTrend
-          };
-        }
-        return stock;
-      })
-    );
-  }, [stockTrends, getColorForStock, generatePriceHistory]);
+    const interval = setInterval(() => {
+      setStocks(prevStocks => 
+        prevStocks.map(stock => {
+          const newTrend = stockTrends[stock.symbol];
+          const currentTrend = stock.trend || 'neutral';
+          
+          // Only update color and trend, keep history
+          if (newTrend && currentTrend !== newTrend) {
+            const isUp = newTrend === 'up';
+            return {
+              ...stock,
+              color: getColorForStock(stock.symbol, isUp),
+              trend: newTrend
+            };
+          }
+          return stock;
+        })
+      );
+    }, 1000); // Check every second instead of immediately
+    
+    return () => clearInterval(interval);
+  }, [stockTrends, getColorForStock]);
   
   useEffect(() => {
     fetchStockPrices();
@@ -816,11 +810,21 @@ const WaveStockSurfer = () => {
     
     const priceChange = priceChanges[stock.symbol];
     let waveShift = 0;
+    let trendMultiplier = 1;
+    
     if (priceChange) {
       waveShift = Math.max(-10, Math.min(10, priceChange.percent * 1.5));
+      // Apply upward or downward slope based on trend
+      trendMultiplier = priceChange.percent >= 0 ? 0.85 : 1.15;
     }
     
-    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - waveShift;
+    const normalizePrice = (price, progress) => {
+      const baseY = height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - waveShift;
+      // Add trend slope: progress goes from 0 to 1 (left to right)
+      const trendAdjustment = (progress - 0.5) * height * 0.15 * (trendMultiplier - 1);
+      return baseY + trendAdjustment;
+    };
+    
     const offset = time * 0.02;
     const points = [];
     for (let i = 0; i < 60; i++) {
@@ -831,7 +835,7 @@ const WaveStockSurfer = () => {
       const nextIndex = Math.min(index + 1, history.length - 1);
       const t = historyIndex - index;
       const price = history[index] * (1 - t) + history[nextIndex] * t;
-      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
+      const y = normalizePrice(price, progress) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
       points.push({ x, y });
     }
     let crestIndex = 0;
