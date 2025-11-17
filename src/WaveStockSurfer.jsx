@@ -369,36 +369,40 @@ const WaveStockSurfer = () => {
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
     setFetchingPrices(false);
-    
-    // Update wave colors based on price changes
-    setStocks(prevStocks => {
-      return prevStocks.map(stock => {
-        const change = newChanges[stock.symbol];
-        if (change) {
-          const isPositive = change.percent >= 0;
-          const currentColor = stock.color;
-          
-          // Check if current color is green
-          const isCurrentlyGreen = greenColors.includes(currentColor);
-          
-          if (isPositive && !isCurrentlyGreen) {
-            // Stock is positive but wave isn't green - change to green
-            return { ...stock, color: greenColors[Math.floor(Math.random() * greenColors.length)] };
-          } else if (!isPositive && isCurrentlyGreen) {
-            // Stock is negative but wave is green - change to non-green
-            return { ...stock, color: nonGreenColors[Math.floor(Math.random() * nonGreenColors.length)] };
-          }
-        }
-        return stock;
-      });
-    });
-  }, [stocks, greenColors, nonGreenColors]);
+  }, [stocks]);
   
   useEffect(() => {
     fetchStockPrices();
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
-  }, [stocks, fetchStockPrices]);
+  }, [fetchStockPrices]);
+  
+  // Separate effect to update colors after prices load
+  useEffect(() => {
+    if (Object.keys(priceChanges).length > 0) {
+      setStocks(prevStocks => {
+        return prevStocks.map(stock => {
+          const change = priceChanges[stock.symbol];
+          if (change) {
+            const isPositive = change.percent >= 0;
+            const currentColor = stock.color;
+            
+            // Check if current color is green
+            const isCurrentlyGreen = greenColors.includes(currentColor);
+            
+            if (isPositive && !isCurrentlyGreen) {
+              // Stock is positive but wave isn't green - change to green
+              return { ...stock, color: greenColors[Math.floor(Math.random() * greenColors.length)] };
+            } else if (!isPositive && isCurrentlyGreen) {
+              // Stock is negative but wave is green - change to non-green
+              return { ...stock, color: nonGreenColors[Math.floor(Math.random() * nonGreenColors.length)] };
+            }
+          }
+          return stock;
+        });
+      });
+    }
+  }, [priceChanges, greenColors, nonGreenColors]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
