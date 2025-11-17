@@ -17,7 +17,18 @@ const WaveStockSurfer = () => {
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [playerName, setPlayerName] = useState('');
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([
+    { name: 'WaveMaster', score: 15420, streak: 28 },
+    { name: 'SurfKing', score: 12850, streak: 22 },
+    { name: 'OceanRider', score: 11200, streak: 19 },
+    { name: 'TideBreaker', score: 9750, streak: 17 },
+    { name: 'CoastalPro', score: 8900, streak: 15 },
+    { name: 'BeachBoss', score: 7600, streak: 13 },
+    { name: 'WaveWarrior', score: 6500, streak: 11 },
+    { name: 'SurfNinja', score: 5200, streak: 9 },
+    { name: 'CrestChaser', score: 4100, streak: 8 },
+    { name: 'AquaAce', score: 3500, streak: 6 }
+  ]);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -391,7 +402,6 @@ const WaveStockSurfer = () => {
   
   const submitScore = useCallback(async () => {
     if (!playerName.trim()) {
-      alert('Please enter your name to submit your score!');
       return;
     }
     
@@ -417,11 +427,8 @@ const WaveStockSurfer = () => {
         entries.sort((a, b) => b.score - a.score);
         setLeaderboard(entries.slice(0, 10));
       }
-      
-      alert('Score submitted! 🎉');
     } catch (error) {
       console.error('Error submitting score:', error);
-      alert('Error submitting score. Please try again.');
     }
   }, [playerName, score, streak]);
   
@@ -1176,10 +1183,10 @@ const WaveStockSurfer = () => {
               onTouchMove={(e) => e.stopPropagation()}
               onTouchEnd={(e) => e.stopPropagation()}
             >
-              <div className="flex border-b border-white/20 flex-shrink-0">
+              <div className="flex border-b border-white/20 flex-shrink-0 overflow-x-auto">
                 <button
                   onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-1.5 sm:px-4 py-2.5 sm:py-4 font-bold transition-all text-[10px] sm:text-sm whitespace-nowrap ${
                     activeMenuTab === 'mywaves' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1189,7 +1196,7 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-1.5 sm:px-4 py-2.5 sm:py-4 font-bold transition-all text-[10px] sm:text-sm whitespace-nowrap ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1199,17 +1206,17 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'leaderboard' ? setShowMenu(false) : setActiveMenuTab('leaderboard')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-1.5 sm:px-4 py-2.5 sm:py-4 font-bold transition-all text-[10px] sm:text-sm whitespace-nowrap ${
                     activeMenuTab === 'leaderboard' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  🏆 Leaders
+                  🏆 Leaderboard
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-1.5 sm:px-4 py-2.5 sm:py-4 font-bold transition-all text-[10px] sm:text-sm whitespace-nowrap ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1219,7 +1226,7 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-1.5 sm:px-4 py-2.5 sm:py-4 font-bold transition-all text-[10px] sm:text-sm whitespace-nowrap ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
