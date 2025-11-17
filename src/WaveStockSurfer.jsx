@@ -1144,7 +1144,7 @@ const WaveStockSurfer = () => {
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  ℹ️ Info
+                  ℹ️ Info/Mission
                 </button>
               </div>
               
