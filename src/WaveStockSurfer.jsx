@@ -1167,11 +1167,7 @@ const WaveStockSurfer = () => {
                           return (
                             <div 
                               key={stock.symbol}
-                              onClick={() => {
-                                setSelectedStock(stock.symbol);
-                                setShowMenu(false);
-                              }}
-                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all cursor-pointer hover:border-white/40 ${
+                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all ${
                                 isSelected ? 'border-green-400' : 'border-white/20'
                               }`}
                             >
@@ -1196,10 +1192,7 @@ const WaveStockSurfer = () => {
                                 
                                 <div className="flex items-center gap-2">
                                   <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      moveStockUp(stock.symbol);
-                                    }}
+                                    onClick={() => moveStockUp(stock.symbol)}
                                     disabled={index === 0}
                                     className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
                                       index === 0 
@@ -1211,10 +1204,7 @@ const WaveStockSurfer = () => {
                                     ↑
                                   </button>
                                   <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      moveStockDown(stock.symbol);
-                                    }}
+                                    onClick={() => moveStockDown(stock.symbol)}
                                     disabled={index === stocks.length - 1}
                                     className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
                                       index === stocks.length - 1 
@@ -1226,10 +1216,7 @@ const WaveStockSurfer = () => {
                                     ↓
                                   </button>
                                   <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeStock(stock.symbol);
-                                    }}
+                                    onClick={() => removeStock(stock.symbol)}
                                     className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-100 flex items-center justify-center transition-all"
                                     title="Remove stock"
                                   >
@@ -1284,42 +1271,6 @@ const WaveStockSurfer = () => {
                         >
                           🌊 Add Wave
                         </button>
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-white/20 pt-6 mt-6">
-                      <h3 className="text-xl font-bold text-white mb-4">🔥 Trending Stocks</h3>
-                      <p className="text-blue-200 mb-4 text-sm">Click any stock to add it to your waves!</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {trendingStocks.map(stock => {
-                          const isAdded = stocks.some(s => s.symbol === stock.symbol);
-                          return (
-                            <button
-                              key={stock.symbol}
-                              onClick={() => {
-                                if (!isAdded) {
-                                  addTrendingStock(stock);
-                                }
-                              }}
-                              disabled={isAdded}
-                              className={`p-3 rounded-lg border-2 transition-all text-left ${
-                                isAdded 
-                                  ? 'bg-white/5 border-green-400 cursor-default' 
-                                  : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-lg font-bold text-white">{stock.symbol}</span>
-                                {isAdded && <span className="text-green-400 text-xs">✓</span>}
-                              </div>
-                              <div className="text-xs text-blue-200">{stock.name}</div>
-                              <div 
-                                className="w-full h-2 rounded-full mt-2" 
-                                style={{ backgroundColor: stock.color }}
-                              />
-                            </button>
-                          );
-                        })}
                       </div>
                     </div>
                   </div>
@@ -1432,6 +1383,10 @@ const WaveStockSurfer = () => {
                       <div className="bg-white/5 rounded-lg p-4">
                         <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
                         <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
+                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
                       </div>
                     </div>
                   </div>
