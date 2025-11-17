@@ -375,7 +375,32 @@ const WaveStockSurfer = () => {
     fetchStockPrices();
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchStockPrices]);
+  
+  // Separate effect to update wave colors based on price performance
+  useEffect(() => {
+    if (Object.keys(priceChanges).length === 0) return;
+    
+    setStocks(prevStocks => {
+      return prevStocks.map(stock => {
+        const change = priceChanges[stock.symbol];
+        if (!change) return stock;
+        
+        const isPositive = change.percent >= 0;
+        const currentColor = stock.color;
+        const isCurrentlyGreen = greenColors.includes(currentColor);
+        
+        // Only change color if needed
+        if (isPositive && !isCurrentlyGreen) {
+          return { ...stock, color: greenColors[Math.floor(Math.random() * greenColors.length)] };
+        } else if (!isPositive && isCurrentlyGreen) {
+          return { ...stock, color: nonGreenColors[Math.floor(Math.random() * nonGreenColors.length)] };
+        }
+        
+        return stock;
+      });
+    });
+  }, [priceChanges, greenColors, nonGreenColors]);
   
   // Separate effect to update colors after prices load
   useEffect(() => {
