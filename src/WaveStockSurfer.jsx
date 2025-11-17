@@ -6,7 +6,7 @@ const WaveStockSurfer = () => {
   const [streak, setStreak] = useState(0);
   const [multiplier, setMultiplier] = useState(1);
   const [showMenu, setShowMenu] = useState(false);
-  const [activeMenuTab, setActiveMenuTab] = useState('trending');
+  const [activeMenuTab, setActiveMenuTab] = useState('mywaves');
   const [powerUp, setPowerUp] = useState(null);
   const [celebration, setCelebration] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1082,7 +1082,7 @@ const WaveStockSurfer = () => {
             <button
               onClick={() => {
                 setShowMenu(true);
-                setActiveMenuTab('trending');
+                setActiveMenuTab('mywaves');
               }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
             >
@@ -1107,6 +1107,16 @@ const WaveStockSurfer = () => {
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
+                  onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'mywaves' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🌊 My Waves
+                </button>
+                <button
                   onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'trending' 
@@ -1115,16 +1125,6 @@ const WaveStockSurfer = () => {
                   }`}
                 >
                   🔥 Trending
-                </button>
-                <button
-                  onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'add' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  ➕ Add Waves
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
@@ -1144,11 +1144,141 @@ const WaveStockSurfer = () => {
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  🌊 Mission
+                  ℹ️ Info
                 </button>
               </div>
               
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                {activeMenuTab === 'mywaves' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🌊 My Waves</h2>
+                    <p className="text-blue-200 mb-4">Manage your current stock waves</p>
+                    
+                    {stocks.length === 0 ? (
+                      <div className="bg-white/5 rounded-xl p-8 border border-white/20 text-center mb-6">
+                        <div className="text-4xl mb-3">🏄‍♂️</div>
+                        <p className="text-blue-200 mb-4">No waves yet! Add some stocks to get started.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 mb-6">
+                        {stocks.map((stock, index) => {
+                          const char = getCharacter(selectedChars[stock.symbol]);
+                          const isSelected = selectedStock === stock.symbol;
+                          const realPrice = realPrices[stock.symbol];
+                          const change = priceChanges[stock.symbol];
+                          
+                          return (
+                            <div 
+                              key={stock.symbol}
+                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all ${
+                                isSelected ? 'border-green-400' : 'border-white/20'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-2xl">{char?.emoji}</span>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="text-xl font-bold text-white">{stock.symbol}</h3>
+                                      {isSelected && <span className="text-green-400 text-xs font-bold">● ACTIVE</span>}
+                                    </div>
+                                    {realPrice && change && (
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-white font-semibold">${realPrice.toFixed(2)}</span>
+                                        <span className={change.percent >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                          {change.percent >= 0 ? '↑' : '↓'} {Math.abs(change.percent).toFixed(2)}%
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => moveStockUp(stock.symbol)}
+                                    disabled={index === 0}
+                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                                      index === 0 
+                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                                        : 'bg-white/20 hover:bg-white/30 text-white'
+                                    }`}
+                                    title="Move up"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    onClick={() => moveStockDown(stock.symbol)}
+                                    disabled={index === stocks.length - 1}
+                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                                      index === stocks.length - 1 
+                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                                        : 'bg-white/20 hover:bg-white/30 text-white'
+                                    }`}
+                                    title="Move down"
+                                  >
+                                    ↓
+                                  </button>
+                                  <button
+                                    onClick={() => removeStock(stock.symbol)}
+                                    className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-100 flex items-center justify-center transition-all"
+                                    title="Remove stock"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <div 
+                                className="w-full h-2 rounded-full mt-2" 
+                                style={{ backgroundColor: stock.color }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    <div className="border-t border-white/20 pt-6">
+                      <h3 className="text-xl font-bold text-white mb-4">➕ Add New Wave</h3>
+                      <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                        <div className="grid grid-cols-1 gap-4 mb-4">
+                          <input
+                            type="text"
+                            placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                            value={newStock.symbol}
+                            onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                            className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
+                          />
+                        </div>
+                        <div className="mb-4">
+                          <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {colors.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => setNewStock({ ...newStock, color })}
+                                className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                  newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                                }`}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleAddStock();
+                          }}
+                          disabled={!newStock.symbol}
+                          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                        >
+                          🌊 Add Wave
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {activeMenuTab === 'trending' && (
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
@@ -1229,7 +1359,6 @@ const WaveStockSurfer = () => {
                     </div>
                   </div>
                 )}
-                
                 {activeMenuTab === 'faq' && (
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
@@ -1269,7 +1398,7 @@ const WaveStockSurfer = () => {
                 {activeMenuTab === 'mission' && (
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
-                      🌊 Our Mission 🏄‍♂️
+                      ℹ️ About Stock Surfer
                     </h2>
                     <div className="space-y-3 text-blue-100 text-base">
                       <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
@@ -1308,7 +1437,7 @@ const WaveStockSurfer = () => {
               <button
                 onClick={() => {
                   setShowMenu(true);
-                  setActiveMenuTab('trending');
+                  setActiveMenuTab('mywaves');
                 }}
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-full inline-flex items-center gap-2 transition-all shadow-lg"
               >
@@ -1449,7 +1578,7 @@ const WaveStockSurfer = () => {
             <button
               onClick={() => {
                 setShowMenu(true);
-                setActiveMenuTab('trending');
+                setActiveMenuTab('mywaves');
               }}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
             >
