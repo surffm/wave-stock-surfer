@@ -460,25 +460,28 @@ const WaveStockSurfer = () => {
   }, [priceChanges]);
   
   useEffect(() => {
-    setStocks(prevStocks => 
-      prevStocks.map(stock => {
-        const newTrend = stockTrends[stock.symbol];
-        const currentTrend = stock.trend || 'neutral';
-        
-        // Only update if trend exists and changed
-        if (newTrend && currentTrend !== newTrend) {
-          const isUp = newTrend === 'up';
-          return {
-            ...stock,
-            color: getColorForStock(stock.symbol, isUp),
-            history: generatePriceHistory(stock.history[0], 0.03, 50, isUp ? 1 : -1),
-            trend: newTrend
-          };
-        }
-        return stock;
-      })
-    );
-  }, [stockTrends, getColorForStock, generatePriceHistory]);
+    const interval = setInterval(() => {
+      setStocks(prevStocks => 
+        prevStocks.map(stock => {
+          const newTrend = stockTrends[stock.symbol];
+          const currentTrend = stock.trend || 'neutral';
+          
+          // Only update color and trend, keep history
+          if (newTrend && currentTrend !== newTrend) {
+            const isUp = newTrend === 'up';
+            return {
+              ...stock,
+              color: getColorForStock(stock.symbol, isUp),
+              trend: newTrend
+            };
+          }
+          return stock;
+        })
+      );
+    }, 1000); // Check every second instead of immediately
+    
+    return () => clearInterval(interval);
+  }, [stockTrends, getColorForStock]);
   
   useEffect(() => {
     fetchStockPrices();
@@ -816,11 +819,21 @@ const WaveStockSurfer = () => {
     
     const priceChange = priceChanges[stock.symbol];
     let waveShift = 0;
+    let trendMultiplier = 1;
+    
     if (priceChange) {
       waveShift = Math.max(-10, Math.min(10, priceChange.percent * 1.5));
+      // Apply upward or downward slope based on trend
+      trendMultiplier = priceChange.percent >= 0 ? 0.85 : 1.15;
     }
     
-    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - waveShift;
+    const normalizePrice = (price, progress) => {
+      const baseY = height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - waveShift;
+      // Add trend slope: progress goes from 0 to 1 (left to right)
+      const trendAdjustment = (progress - 0.5) * height * 0.15 * (trendMultiplier - 1);
+      return baseY + trendAdjustment;
+    };
+    
     const offset = time * 0.02;
     const points = [];
     for (let i = 0; i < 60; i++) {
@@ -831,7 +844,7 @@ const WaveStockSurfer = () => {
       const nextIndex = Math.min(index + 1, history.length - 1);
       const t = historyIndex - index;
       const price = history[index] * (1 - t) + history[nextIndex] * t;
-      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
+      const y = normalizePrice(price, progress) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
       points.push({ x, y });
     }
     let crestIndex = 0;
