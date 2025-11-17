@@ -28,10 +28,10 @@ const WaveStockSurfer = () => {
     { id: 'piccolo', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
     { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
     { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
-    { id: 'dolphin', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
+    { id: 'dolphin', name: 'Storm Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
     { id: 'cat', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
     { id: 'unicorn', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
-    { id: 'wolf', name: 'Storm Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
+    { id: 'wolf', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
   ], []);
 
   const trendingStocks = useMemo(() => [
@@ -983,7 +983,7 @@ const WaveStockSurfer = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            🏄‍♂️ Wave Stock Surfer 🌊
+            Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
