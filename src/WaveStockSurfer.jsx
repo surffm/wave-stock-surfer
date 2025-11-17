@@ -1433,10 +1433,6 @@ const WaveStockSurfer = () => {
                         <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
                         <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
                       </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
-                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
-                      </div>
                     </div>
                   </div>
                 )}
