@@ -16,6 +16,18 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [leaderboard] = useState([
+    { rank: 1, name: 'WaveKing🌊', score: 125000, streak: 45, emoji: '👑' },
+    { rank: 2, name: 'SurfMaster', score: 98500, streak: 38, emoji: '🏄‍♂️' },
+    { rank: 3, name: 'TideRider', score: 87300, streak: 35, emoji: '🌟' },
+    { rank: 4, name: 'OceanPro', score: 76200, streak: 32, emoji: '⚡' },
+    { rank: 5, name: 'WaveNinja', score: 68900, streak: 29, emoji: '🥷' },
+    { rank: 6, name: 'CrestLegend', score: 61500, streak: 27, emoji: '🦸‍♂️' },
+    { rank: 7, name: 'SplashHero', score: 55800, streak: 24, emoji: '💫' },
+    { rank: 8, name: 'TsunamiKid', score: 49200, streak: 22, emoji: '🌊' },
+    { rank: 9, name: 'BarrelBoss', score: 43700, streak: 19, emoji: '🎯' },
+    { rank: 10, name: 'FoamKing', score: 38100, streak: 17, emoji: '✨' }
+  ]);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
