@@ -315,101 +315,49 @@ const WaveStockSurfer = () => {
     const newPrices = {};
     const newChanges = {};
     
-    // Fetch active stocks first for fast loading
-    const activeSymbols = stocks.map(s => s.symbol);
-    const trendingSymbols = trendingStocks.map(s => s.symbol).filter(s => !activeSymbols.includes(s));
-    
-    // Priority 1: Fetch active wave stocks immediately
-    for (const symbol of activeSymbols) {
+    for (const stock of stocks) {
       try {
         const finnhubResponse = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
         );
         
         if (finnhubResponse.ok) {
           const finnhubData = await finnhubResponse.json();
           if (finnhubData.c && finnhubData.c > 0) {
-            newPrices[symbol] = finnhubData.c;
-            newChanges[symbol] = {
+            newPrices[stock.symbol] = finnhubData.c;
+            newChanges[stock.symbol] = {
               amount: finnhubData.d || 0,
               percent: finnhubData.dp || 0
             };
-            // Update state immediately for active stocks
-            setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
-            setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
             continue;
           }
         }
         
         await new Promise(resolve => setTimeout(resolve, 200));
         const alphaResponse = await fetch(
-          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
         );
         
         if (alphaResponse.ok) {
           const alphaData = await alphaResponse.json();
           const quote = alphaData['Global Quote'];
           if (quote && quote['05. price']) {
-            const price = parseFloat(quote['05. price']);
-            const change = {
+            newPrices[stock.symbol] = parseFloat(quote['05. price']);
+            newChanges[stock.symbol] = {
               amount: parseFloat(quote['09. change'] || 0),
               percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
             };
-            newPrices[symbol] = price;
-            newChanges[symbol] = change;
-            // Update state immediately for active stocks
-            setRealPrices(prev => ({ ...prev, [symbol]: price }));
-            setPriceChanges(prev => ({ ...prev, [symbol]: change }));
           }
         }
       } catch (error) {
-        console.error(`Error fetching price for ${symbol}:`, error);
+        console.error(`Error fetching price for ${stock.symbol}:`, error);
       }
     }
     
-    // Priority 2: Fetch trending stocks in background (only if menu is open)
-    setTimeout(async () => {
-      for (const symbol of trendingSymbols) {
-        try {
-          const finnhubResponse = await fetch(
-            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
-          );
-          
-          if (finnhubResponse.ok) {
-            const finnhubData = await finnhubResponse.json();
-            if (finnhubData.c && finnhubData.c > 0) {
-              setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
-              setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
-              continue;
-            }
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 200));
-          const alphaResponse = await fetch(
-            `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
-          );
-          
-          if (alphaResponse.ok) {
-            const alphaData = await alphaResponse.json();
-            const quote = alphaData['Global Quote'];
-            if (quote && quote['05. price']) {
-              const price = parseFloat(quote['05. price']);
-              const change = {
-                amount: parseFloat(quote['09. change'] || 0),
-                percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
-              };
-              setRealPrices(prev => ({ ...prev, [symbol]: price }));
-              setPriceChanges(prev => ({ ...prev, [symbol]: change }));
-            }
-          }
-        } catch (error) {
-          console.error(`Error fetching price for ${symbol}:`, error);
-        }
-      }
-    }, 100);
-    
+    setRealPrices(newPrices);
+    setPriceChanges(newChanges);
     setFetchingPrices(false);
-  }, [stocks, trendingStocks]);
+  }, [stocks]);
   
   useEffect(() => {
     fetchStockPrices();
@@ -1010,26 +958,6 @@ const WaveStockSurfer = () => {
     }
   }, [selectedStock, stocks]);
 
-  const moveStockUp = useCallback((symbol) => {
-    setStocks(prev => {
-      const index = prev.findIndex(s => s.symbol === symbol);
-      if (index <= 0) return prev;
-      const newStocks = [...prev];
-      [newStocks[index - 1], newStocks[index]] = [newStocks[index], newStocks[index - 1]];
-      return newStocks;
-    });
-  }, []);
-
-  const moveStockDown = useCallback((symbol) => {
-    setStocks(prev => {
-      const index = prev.findIndex(s => s.symbol === symbol);
-      if (index < 0 || index >= prev.length - 1) return prev;
-      const newStocks = [...prev];
-      [newStocks[index], newStocks[index + 1]] = [newStocks[index + 1], newStocks[index]];
-      return newStocks;
-    });
-  }, []);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
@@ -1146,7 +1074,7 @@ const WaveStockSurfer = () => {
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
-                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
+                  onClick={() => setActiveMenuTab('trending')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
@@ -1156,7 +1084,7 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
-                  onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
+                  onClick={() => setActiveMenuTab('add')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'add' 
                       ? 'bg-blue-600 text-white' 
@@ -1166,7 +1094,7 @@ const WaveStockSurfer = () => {
                   ➕ Add Waves
                 </button>
                 <button
-                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
+                  onClick={() => setActiveMenuTab('faq')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
@@ -1176,7 +1104,7 @@ const WaveStockSurfer = () => {
                   ❓ FAQ
                 </button>
                 <button
-                  onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
+                  onClick={() => setActiveMenuTab('mission')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
@@ -1195,11 +1123,6 @@ const WaveStockSurfer = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {trendingStocks.map(stock => {
                         const isAdded = stocks.some(s => s.symbol === stock.symbol);
-                        const realPrice = realPrices[stock.symbol];
-                        const change = priceChanges[stock.symbol];
-                        const isPositive = change && change.percent >= 0;
-                        const priceColor = isPositive ? '#34D399' : '#F87171';
-                        
                         return (
                           <button
                             key={stock.symbol}
@@ -1220,30 +1143,9 @@ const WaveStockSurfer = () => {
                               <span className="text-2xl font-bold text-white">{stock.symbol}</span>
                               {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
                             </div>
-                            <div className="text-sm text-blue-200 mb-2">{stock.name}</div>
-                            
-                            {realPrice && change ? (
-                              <div className="space-y-1 mb-2">
-                                <div className="text-lg font-bold text-white">
-                                  ${realPrice.toFixed(2)}
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span style={{ color: priceColor }} className="font-bold">
-                                    {isPositive ? '↑' : '↓'} {Math.abs(change.percent).toFixed(2)}%
-                                  </span>
-                                  <span style={{ color: priceColor }} className="text-xs">
-                                    {change.amount >= 0 ? '+' : ''}{change.amount.toFixed(2)}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-xs text-blue-300/60 mb-2">
-                                {fetchingPrices ? 'Loading...' : 'Price data unavailable'}
-                              </div>
-                            )}
-                            
+                            <div className="text-sm text-blue-200">{stock.name}</div>
                             <div 
-                              className="w-full h-2 rounded-full" 
+                              className="w-full h-2 rounded-full mt-2" 
                               style={{ backgroundColor: stock.color }}
                             />
                           </button>
@@ -1337,7 +1239,7 @@ const WaveStockSurfer = () => {
                       🌊 Our Mission 🏄‍♂️
                     </h2>
                     <div className="space-y-3 text-blue-100 text-base">
-                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! �️</p>
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
                       <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
                       <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
                       <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
@@ -1365,7 +1267,7 @@ const WaveStockSurfer = () => {
         )}
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {stocks.map((stock, index) => {
+          {stocks.map((stock) => {
             const char = getCharacter(selectedChars[stock.symbol]);
             const isSelected = selectedStock === stock.symbol;
             
@@ -1381,50 +1283,15 @@ const WaveStockSurfer = () => {
                 }`}
                 style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-                  <div className="flex flex-col gap-0.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStockUp(stock.symbol);
-                      }}
-                      disabled={index === 0}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                        index === 0 
-                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                      }`}
-                      title="Move up"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStockDown(stock.symbol);
-                      }}
-                      disabled={index === stocks.length - 1}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                        index === stocks.length - 1 
-                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                      }`}
-                      title="Move down"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeStock(stock.symbol);
-                    }}
-                    className="text-white/50 hover:text-white transition-colors"
-                    title="Remove stock"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeStock(stock.symbol);
+                  }}
+                  className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors z-10"
+                >
+                  <X size={20} />
+                </button>
                 
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
