@@ -16,6 +16,7 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [originalColors, setOriginalColors] = useState({});
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -50,6 +51,8 @@ const WaveStockSurfer = () => {
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
+  const greenColors = useMemo(() => ['#34D399', '#10B981', '#14B8A6', '#22C55E', '#4ADE80'], []);
+  const nonGreenColors = useMemo(() => ['#60A5FA', '#F87171', '#FBBF24', '#A78BFA', '#EC4899'], []);
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
   
@@ -70,6 +73,15 @@ const WaveStockSurfer = () => {
   ], [generatePriceHistory]);
   
   const [stocks, setStocks] = useState(initialStocks);
+  
+  useEffect(() => {
+    const origColors = {};
+    initialStocks.forEach(stock => {
+      origColors[stock.symbol] = stock.color;
+    });
+    setOriginalColors(origColors);
+  }, [initialStocks]);
+  
   const [selectedStock, setSelectedStock] = useState('GME');
   const [selectedChars, setSelectedChars] = useState({ GME: 'goku', AAPL: 'vegeta', GOOGL: 'goku', TSLA: 'vegeta' });
   const [surferPositions, setSurferPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: { x: 0.3, y: 0.5, jumping: false, direction: 1, spinning: false, spinCount: 0 } }), {}));
@@ -357,13 +369,36 @@ const WaveStockSurfer = () => {
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
     setFetchingPrices(false);
-  }, [stocks]);
+    
+    // Update wave colors based on price changes
+    setStocks(prevStocks => {
+      return prevStocks.map(stock => {
+        const change = newChanges[stock.symbol];
+        if (change) {
+          const isPositive = change.percent >= 0;
+          const currentColor = stock.color;
+          
+          // Check if current color is green
+          const isCurrentlyGreen = greenColors.includes(currentColor);
+          
+          if (isPositive && !isCurrentlyGreen) {
+            // Stock is positive but wave isn't green - change to green
+            return { ...stock, color: greenColors[Math.floor(Math.random() * greenColors.length)] };
+          } else if (!isPositive && isCurrentlyGreen) {
+            // Stock is negative but wave is green - change to non-green
+            return { ...stock, color: nonGreenColors[Math.floor(Math.random() * nonGreenColors.length)] };
+          }
+        }
+        return stock;
+      });
+    });
+  }, [stocks, greenColors, nonGreenColors]);
   
   useEffect(() => {
     fetchStockPrices();
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
-  }, [fetchStockPrices]);
+  }, [stocks, fetchStockPrices]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -896,6 +931,7 @@ const WaveStockSurfer = () => {
       setWaterTrails(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setCutbackSplashes(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: [] }));
       setTargetPositions(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: null }));
+      setOriginalColors(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: newStock.color }));
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
       setShowAddForm(false);
@@ -924,6 +960,7 @@ const WaveStockSurfer = () => {
     setWaterTrails(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setCutbackSplashes(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setTargetPositions(prev => ({ ...prev, [trendingStock.symbol]: null }));
+    setOriginalColors(prev => ({ ...prev, [trendingStock.symbol]: trendingStock.color }));
   }, [stocks, generatePriceHistory]);
 
   const removeStock = useCallback((symbol) => {
@@ -1247,7 +1284,7 @@ const WaveStockSurfer = () => {
                       </div>
                       <div className="bg-white/5 rounded-lg p-4">
                         <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
-                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
+                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. Green waves indicate positive stocks, other colors show negative ones!</p>
                       </div>
                     </div>
                   </div>
