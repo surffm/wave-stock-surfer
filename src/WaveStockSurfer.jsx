@@ -603,7 +603,7 @@ const WaveStockSurfer = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            🏄‍♂️ Wave Stock Surfer 🌊
+            🏄‍♂️ Wave Stock Surf 🌊
           </h1>
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf! Tap jump button to jump!' : 'Use arrow keys to carve, SPACE to jump!'}
