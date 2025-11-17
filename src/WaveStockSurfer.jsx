@@ -1105,7 +1105,7 @@ const WaveStockSurfer = () => {
         {showMenu && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="flex border-b border-white/20">
+              <div className="flex border-b border-white/20 flex-shrink-0">
                 <button
                   onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
