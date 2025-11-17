@@ -1117,7 +1117,7 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
-                  onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
+                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'mywaves' 
                       ? 'bg-blue-600 text-white' 
@@ -1130,16 +1130,6 @@ const WaveStockSurfer = () => {
                   onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'add' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  ➕ Add Wave
-                </button>
-                <button
-                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
