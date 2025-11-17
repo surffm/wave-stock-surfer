@@ -5,7 +5,8 @@ const WaveStockSurfer = () => {
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [multiplier, setMultiplier] = useState(1);
-  const [showMission, setShowMission] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [activeMenuTab, setActiveMenuTab] = useState('mywaves');
   const [powerUp, setPowerUp] = useState(null);
   const [celebration, setCelebration] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -27,10 +28,25 @@ const WaveStockSurfer = () => {
     { id: 'piccolo', name: 'Surf Cat', emoji: '🐱', unlocked: false, unlock: 'Score 1000+', color: '#95E1D3', invertDirection: true },
     { id: 'trunks', name: 'Crest Legend', emoji: '⚡', unlocked: false, unlock: 'Get 3 power-ups', color: '#F38181', invertDirection: true },
     { id: 'krillin', name: 'Beach Boss', emoji: '🌟', unlocked: false, unlock: 'Reach 10 streak', color: '#AA96DA', invertDirection: false },
-    { id: 'dolphin', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
+    { id: 'dolphin', name: 'Storm Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 20 streak', color: '#3BA3FF', invertDirection: false },
     { id: 'cat', name: 'Magic Unicorn', emoji: '🦄', unlocked: false, unlock: 'Score 5000+', color: '#F6A5C0', invertDirection: false },
     { id: 'unicorn', name: 'Lone Wolf Rider', emoji: '🐺', unlocked: false, unlock: 'Collect 10 power-ups', color: '#D98FFF', invertDirection: false },
-    { id: 'wolf', name: 'Storm Rider', emoji: '🦸‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
+    { id: 'wolf', name: 'Tide Master', emoji: '🧙‍♂️', unlocked: false, unlock: 'Reach 15 streak', color: '#6E8B8E', invertDirection: false }
+  ], []);
+
+  const trendingStocks = useMemo(() => [
+    { symbol: 'NVDA', name: 'NVIDIA', color: '#76B900' },
+    { symbol: 'MSFT', name: 'Microsoft', color: '#00A4EF' },
+    { symbol: 'AMZN', name: 'Amazon', color: '#FF9900' },
+    { symbol: 'META', name: 'Meta', color: '#0668E1' },
+    { symbol: 'NFLX', name: 'Netflix', color: '#E50914' },
+    { symbol: 'AMD', name: 'AMD', color: '#ED1C24' },
+    { symbol: 'COIN', name: 'Coinbase', color: '#0052FF' },
+    { symbol: 'PLTR', name: 'Palantir', color: '#101113' },
+    { symbol: 'RIVN', name: 'Rivian', color: '#00FFB4' },
+    { symbol: 'SHOP', name: 'Shopify', color: '#96BF48' },
+    { symbol: 'SQ', name: 'Block', color: '#00D924' },
+    { symbol: 'UBER', name: 'Uber', color: '#000000' }
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
@@ -353,8 +369,24 @@ const WaveStockSurfer = () => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    
+    const startAudio = () => {
+      if (soundEnabled && !audioContextRef.current) {
+        initAudio();
+      }
+    };
+    
+    window.addEventListener('click', startAudio, { once: true });
+    window.addEventListener('touchstart', startAudio, { once: true });
+    window.addEventListener('keydown', startAudio, { once: true });
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('click', startAudio);
+      window.removeEventListener('touchstart', startAudio);
+      window.removeEventListener('keydown', startAudio);
+    };
+  }, [initAudio, soundEnabled]);
   
   const handleStockCardTouch = useCallback((e, stockSymbol) => {
     if (stockSymbol !== selectedStock) return;
@@ -376,17 +408,27 @@ const WaveStockSurfer = () => {
     currentTouchStock.current = null;
   }, []);
   
+  const jumpTimeoutRef = useRef(null);
+  
   const handleJump = useCallback(() => {
     if (selectedStock) {
       setSurferPositions(prev => {
         const current = prev[selectedStock];
-        if (current.jumping) {
+        if (current.jumping && current.spinning) {
           playSpinSound();
           return {
             ...prev,
             [selectedStock]: {
               ...current,
-              direction: current.direction * -1,
+              spinCount: current.spinCount + 1
+            }
+          };
+        } else if (current.jumping) {
+          playSpinSound();
+          return {
+            ...prev,
+            [selectedStock]: {
+              ...current,
               spinning: true,
               spinCount: current.spinCount + 1
             }
@@ -420,17 +462,36 @@ const WaveStockSurfer = () => {
   }, [selectedStock, playJumpSound, playSpinSound]);
   
   useEffect(() => {
+    let spinInterval;
+    
     const handleKeyDown = (e) => {
-      keysPressed.current[e.key] = true;
+      if (!keysPressed.current[e.key]) {
+        keysPressed.current[e.key] = true;
+        if (e.key === ' ' && selectedStock) {
+          handleJump();
+          spinInterval = setInterval(() => {
+            if (keysPressed.current[' ']) {
+              handleJump();
+            }
+          }, 100);
+        }
+      }
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
-      if (e.key === ' ' && selectedStock) handleJump();
     };
-    const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
+    
+    const handleKeyUp = (e) => { 
+      keysPressed.current[e.key] = false;
+      if (e.key === ' ') {
+        clearInterval(spinInterval);
+      }
+    };
+    
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      clearInterval(spinInterval);
     };
   }, [selectedStock, handleJump]);
   
@@ -535,17 +596,15 @@ const WaveStockSurfer = () => {
           newX = Math.max(0.05, newX - 0.02);
           if (newX < oldX && newDirection === 1) createCutbackSplash(selectedStock, newX, current.y);
           if (newX < oldX) newDirection = -1;
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
         if (keysPressed.current['ArrowRight']) {
           const oldX = newX;
           newX = Math.min(0.95, newX + 0.02);
           if (newX > oldX && newDirection === -1) createCutbackSplash(selectedStock, newX, current.y);
           if (newX > oldX) newDirection = 1;
-          setTargetPositions(prev => ({ ...prev, [selectedStock]: null }));
         }
-        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
-        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); setTargetPositions(prev => ({ ...prev, [selectedStock]: null })); }
+        if (keysPressed.current['ArrowUp']) { newY = Math.max(0.5, newY - 0.02); }
+        if (keysPressed.current['ArrowDown']) { newY = Math.min(1.5, newY + 0.02); }
         previousX.current[selectedStock] = newX;
         return { ...prev, [selectedStock]: { ...current, x: newX, y: newY, direction: newDirection } };
       });
@@ -735,19 +794,6 @@ const WaveStockSurfer = () => {
       }
     }
     
-    if (surferPos.spinCount > 0 && surferPos.jumping && stock.symbol === selectedStock) {
-      ctx.save();
-      ctx.font = 'bold 24px Arial';
-      ctx.fillStyle = '#FFD700';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 4;
-      ctx.textAlign = 'center';
-      const counterY = surferPoint.y - 60 + (surferPos.jumping ? -30 : 0) + (surferPos.y - 0.5) * height * 0.8;
-      ctx.strokeText(`${surferPos.spinCount}x SPIN!`, surferPoint.x, counterY);
-      ctx.fillText(`${surferPos.spinCount}x SPIN!`, surferPoint.x, counterY);
-      ctx.restore();
-    }
-    
     (waterTrails[stock.symbol] || []).forEach(particle => {
       ctx.globalAlpha = particle.life;
       ctx.fillStyle = '#60A5FA';
@@ -841,7 +887,7 @@ const WaveStockSurfer = () => {
         selectedChar: 'goku'
       };
       
-      setStocks(prev => [...prev, newStockData]);
+      setStocks(prev => [newStockData, ...prev]);
       setSelectedChars(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: 'goku' }));
       setSurferPositions(prev => ({ 
         ...prev, 
@@ -856,8 +902,48 @@ const WaveStockSurfer = () => {
     }
   }, [newStock, colors, stocks.length, generatePriceHistory]);
 
+  const addTrendingStock = useCallback((trendingStock) => {
+    if (stocks.some(s => s.symbol === trendingStock.symbol)) {
+      return;
+    }
+    
+    const basePrice = Math.random() * 200 + 50;
+    const newStockData = {
+      symbol: trendingStock.symbol,
+      color: trendingStock.color,
+      history: generatePriceHistory(basePrice, 0.03, 50),
+      selectedChar: 'goku'
+    };
+    
+    setStocks(prev => [newStockData, ...prev]);
+    setSelectedChars(prev => ({ ...prev, [trendingStock.symbol]: 'goku' }));
+    setSurferPositions(prev => ({ 
+      ...prev, 
+      [trendingStock.symbol]: { x: 0.3, y: 0.5, jumping: false, direction: 1, spinning: false, spinCount: 0 }
+    }));
+    setWaterTrails(prev => ({ ...prev, [trendingStock.symbol]: [] }));
+    setCutbackSplashes(prev => ({ ...prev, [trendingStock.symbol]: [] }));
+    setTargetPositions(prev => ({ ...prev, [trendingStock.symbol]: null }));
+  }, [stocks, generatePriceHistory]);
+
   const removeStock = useCallback((symbol) => {
-    setStocks(prev => prev.filter(s => s.symbol !== symbol));
+    setStocks(prev => {
+      const filtered = prev.filter(s => s.symbol !== symbol);
+      
+      // If removing the selected stock, select another one
+      if (selectedStock === symbol) {
+        if (filtered.length > 0) {
+          // Select the first remaining stock
+          setSelectedStock(filtered[0].symbol);
+        } else {
+          // No stocks left
+          setSelectedStock(null);
+        }
+      }
+      
+      return filtered;
+    });
+    
     setSelectedChars(prev => {
       const newChars = { ...prev };
       delete newChars[symbol];
@@ -883,31 +969,38 @@ const WaveStockSurfer = () => {
       delete newTargets[symbol];
       return newTargets;
     });
-    if (selectedStock === symbol) {
-      setSelectedStock(stocks[0]?.symbol || null);
-    }
-  }, [selectedStock, stocks]);
+  }, [selectedStock]);
+
+  const moveStockUp = useCallback((symbol) => {
+    setStocks(prev => {
+      const index = prev.findIndex(s => s.symbol === symbol);
+      if (index <= 0) return prev;
+      const newStocks = [...prev];
+      [newStocks[index - 1], newStocks[index]] = [newStocks[index], newStocks[index - 1]];
+      return newStocks;
+    });
+  }, []);
+
+  const moveStockDown = useCallback((symbol) => {
+    setStocks(prev => {
+      const index = prev.findIndex(s => s.symbol === symbol);
+      if (index < 0 || index >= prev.length - 1) return prev;
+      const newStocks = [...prev];
+      [newStocks[index], newStocks[index + 1]] = [newStocks[index + 1], newStocks[index]];
+      return newStocks;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            🏄‍♂️ Wave Stock Surfer 🌊
+            Stock Surfer 🌊
           </h1>
           <p className="text-blue-200 text-lg">
             {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
           </p>
-          <button
-            onClick={toggleSound}
-            className={`mt-3 px-6 py-2 rounded-full font-bold transition-all shadow-lg ${
-              soundEnabled 
-                ? 'bg-green-500 hover:bg-green-600 text-white' 
-                : 'bg-gray-500 hover:bg-gray-600 text-white'
-            }`}
-          >
-            {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
-          </button>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -985,25 +1078,346 @@ const WaveStockSurfer = () => {
         </div>
         
         <div className="text-center mb-6">
-          <button
-            onClick={() => setShowMission(!showMission)}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 mx-auto transition-all shadow-lg"
-          >
-            <Info size={20} />
-            {showMission ? 'Hide' : 'Show'} Mission
-          </button>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('mywaves');
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Info size={20} />
+              Menu
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('add');
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Wave
+            </button>
+          </div>
         </div>
         
-        {showMission && (
-          <div className="mb-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
-            <h2 className="text-3xl font-bold mb-3 flex items-center gap-2">
-              🌊 Our Mission 🏄‍♂️
-            </h2>
-            <div className="space-y-3 text-base">
-              <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
-              <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-              <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-              <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
+        {showMenu && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex border-b border-white/20">
+                <button
+                  onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'mywaves' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🌊 My Waves
+                </button>
+                <button
+                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'trending' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🔥 Trending
+                </button>
+                <button
+                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'faq' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  ❓ FAQ
+                </button>
+                <button
+                  onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                    activeMenuTab === 'mission' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  ℹ️ Info
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                {activeMenuTab === 'mywaves' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🌊 My Waves</h2>
+                    <p className="text-blue-200 mb-4">Manage your current stock waves</p>
+                    
+                    {stocks.length === 0 ? (
+                      <div className="bg-white/5 rounded-xl p-8 border border-white/20 text-center mb-6">
+                        <div className="text-4xl mb-3">🏄‍♂️</div>
+                        <p className="text-blue-200 mb-4">No waves yet! Add some stocks to get started.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 mb-6">
+                        {stocks.map((stock, index) => {
+                          const char = getCharacter(selectedChars[stock.symbol]);
+                          const isSelected = selectedStock === stock.symbol;
+                          const realPrice = realPrices[stock.symbol];
+                          const change = priceChanges[stock.symbol];
+                          
+                          return (
+                            <div 
+                              key={stock.symbol}
+                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all ${
+                                isSelected ? 'border-green-400' : 'border-white/20'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-2xl">{char?.emoji}</span>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="text-xl font-bold text-white">{stock.symbol}</h3>
+                                      {isSelected && <span className="text-green-400 text-xs font-bold">● ACTIVE</span>}
+                                    </div>
+                                    {realPrice && change && (
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-white font-semibold">${realPrice.toFixed(2)}</span>
+                                        <span className={change.percent >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                          {change.percent >= 0 ? '↑' : '↓'} {Math.abs(change.percent).toFixed(2)}%
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => moveStockUp(stock.symbol)}
+                                    disabled={index === 0}
+                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                                      index === 0 
+                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                                        : 'bg-white/20 hover:bg-white/30 text-white'
+                                    }`}
+                                    title="Move up"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    onClick={() => moveStockDown(stock.symbol)}
+                                    disabled={index === stocks.length - 1}
+                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                                      index === stocks.length - 1 
+                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                                        : 'bg-white/20 hover:bg-white/30 text-white'
+                                    }`}
+                                    title="Move down"
+                                  >
+                                    ↓
+                                  </button>
+                                  <button
+                                    onClick={() => removeStock(stock.symbol)}
+                                    className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-100 flex items-center justify-center transition-all"
+                                    title="Remove stock"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <div 
+                                className="w-full h-2 rounded-full mt-2" 
+                                style={{ backgroundColor: stock.color }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    <div className="border-t border-white/20 pt-6">
+                      <h3 className="text-xl font-bold text-white mb-4">➕ Add New Wave</h3>
+                      <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                        <div className="grid grid-cols-1 gap-4 mb-4">
+                          <input
+                            type="text"
+                            placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                            value={newStock.symbol}
+                            onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                            className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
+                          />
+                        </div>
+                        <div className="mb-4">
+                          <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {colors.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => setNewStock({ ...newStock, color })}
+                                className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                  newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                                }`}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleAddStock();
+                          }}
+                          disabled={!newStock.symbol}
+                          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                        >
+                          🌊 Add Wave
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'trending' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
+                    <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {trendingStocks.map(stock => {
+                        const isAdded = stocks.some(s => s.symbol === stock.symbol);
+                        return (
+                          <button
+                            key={stock.symbol}
+                            onClick={() => {
+                              if (!isAdded) {
+                                addTrendingStock(stock);
+                                setShowMenu(false);
+                              }
+                            }}
+                            disabled={isAdded}
+                            className={`p-4 rounded-lg border-2 transition-all text-left ${
+                              isAdded 
+                                ? 'bg-white/5 border-green-400 cursor-default' 
+                                : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-2xl font-bold text-white">{stock.symbol}</span>
+                              {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
+                            </div>
+                            <div className="text-sm text-blue-200">{stock.name}</div>
+                            <div 
+                              className="w-full h-2 rounded-full mt-2" 
+                              style={{ backgroundColor: stock.color }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'add' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">➕ Add Your Own Wave</h2>
+                    <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                      <div className="grid grid-cols-1 gap-4 mb-4">
+                        <input
+                          type="text"
+                          placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                          value={newStock.symbol}
+                          onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                          className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
+                        />
+                      </div>
+                      <div className="mb-4">
+                        <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {colors.map(color => (
+                            <button
+                              key={color}
+                              onClick={() => setNewStock({ ...newStock, color })}
+                              className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          handleAddStock();
+                          setShowMenu(false);
+                        }}
+                        disabled={!newStock.symbol}
+                        className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        🌊 Add Wave
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {activeMenuTab === 'faq' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
+                    <div className="space-y-4 text-blue-100">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I play?</h3>
+                        <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What are the water effects?</h3>
+                        <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I spin?</h3>
+                        <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I unlock characters?</h3>
+                        <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Are these real stock prices?</h3>
+                        <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
+                        <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What do the colors mean?</h3>
+                        <p className="text-sm">Each stock has its own wave color. Green arrows (↑) mean the stock is up, red arrows (↓) mean it's down. It's all visual and relaxing!</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'mission' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
+                      ℹ️ About Stock Surfer
+                    </h2>
+                    <div className="space-y-3 text-blue-100 text-base">
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
+                      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+                      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+                      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="border-t border-white/20 p-4 bg-black/20">
+                <button
+                  onClick={() => setShowMenu(false)}
+                  className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                >
+                  Close Menu
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1015,7 +1429,24 @@ const WaveStockSurfer = () => {
         )}
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {stocks.map((stock) => {
+          {stocks.length === 0 ? (
+            <div className="col-span-full bg-white/10 backdrop-blur-md rounded-2xl p-12 border-2 border-white/20 text-center">
+              <div className="text-6xl mb-4">🌊</div>
+              <h3 className="text-2xl font-bold text-white mb-2">No waves yet!</h3>
+              <p className="text-blue-200 mb-6">Add some stocks to start surfing</p>
+              <button
+                onClick={() => {
+                  setShowMenu(true);
+                  setActiveMenuTab('mywaves');
+                }}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-full inline-flex items-center gap-2 transition-all shadow-lg"
+              >
+                <Plus size={20} />
+                Add Your First Wave
+              </button>
+            </div>
+          ) : (
+            stocks.map((stock, index) => {
             const char = getCharacter(selectedChars[stock.symbol]);
             const isSelected = selectedStock === stock.symbol;
             
@@ -1031,15 +1462,50 @@ const WaveStockSurfer = () => {
                 }`}
                 style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeStock(stock.symbol);
-                  }}
-                  className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors z-10"
-                >
-                  <X size={20} />
-                </button>
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockUp(stock.symbol);
+                      }}
+                      disabled={index === 0}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === 0 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockDown(stock.symbol);
+                      }}
+                      disabled={index === stocks.length - 1}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === stocks.length - 1 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeStock(stock.symbol);
+                    }}
+                    className="text-white/50 hover:text-white transition-colors"
+                    title="Remove stock"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
                 
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
@@ -1100,61 +1566,46 @@ const WaveStockSurfer = () => {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
-        
-        {!showAddForm ? (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition-colors flex items-center justify-center gap-2 mb-6"
-          >
-            <Plus size={24} />
-            Add New Wave
-          </button>
-        ) : (
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 mb-6">
-            <h3 className="text-2xl font-bold text-white mb-4">Catch a New Wave</h3>
-            <div className="grid grid-cols-1 gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Symbol (e.g., NVDA)"
-                value={newStock.symbol}
-                onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
-                className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
-              <div className="flex gap-2">
-                {colors.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setNewStock({ ...newStock, color })}
-                    className={`w-10 h-10 rounded-full border-2 ${newStock.color === color ? 'border-white' : 'border-white/20'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <button
-                onClick={handleAddStock}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition-colors"
-              >
-                Add Stock
-              </button>
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
         
         <div className="text-center text-blue-200 text-sm mb-6">
           💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
+        </div>
+
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('mywaves');
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Info size={20} />
+              Menu
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('add');
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Wave
+            </button>
+            <button
+              onClick={toggleSound}
+              className={`px-6 py-3 rounded-full font-bold transition-all shadow-lg ${
+                soundEnabled 
+                  ? 'bg-green-500 hover:bg-green-600 text-white' 
+                  : 'bg-gray-500 hover:bg-gray-600 text-white'
+              }`}
+            >
+              {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
+            </button>
+          </div>
         </div>
 
         <div className="flex justify-center gap-4 mb-6">
