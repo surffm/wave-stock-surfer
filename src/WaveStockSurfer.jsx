@@ -1108,7 +1108,7 @@ const WaveStockSurfer = () => {
               <div className="flex border-b border-white/20 flex-shrink-0">
                 <button
                   onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
+                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
                     activeMenuTab === 'mywaves' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
