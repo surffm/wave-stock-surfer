@@ -50,24 +50,53 @@ const WaveStockSurfer = () => {
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
+  const upColors = useMemo(() => ['#34D399', '#10B981', '#22D3EE', '#60A5FA', '#6EE7B7', '#A7F3D0', '#86EFAC'], []);
+  const downColors = useMemo(() => ['#F87171', '#EF4444', '#DC2626', '#B91C1C', '#F43F5E', '#E11D48', '#BE123C'], []);
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
   
-  const generatePriceHistory = useCallback((basePrice, volatility, points) => {
+  const getColorForStock = useCallback((symbol, isUp) => {
+    const colorArray = isUp ? upColors : downColors;
+    const hash = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colorArray[hash % colorArray.length];
+  }, [upColors, downColors]);
+  
+  const generatePriceHistory = useCallback((basePrice, volatility, points, forceDirection = null) => {
     const history = [basePrice];
+    let trend = forceDirection !== null ? forceDirection : (Math.random() > 0.5 ? 1 : -1);
+    
     for (let i = 1; i < points; i++) {
-      const change = (Math.random() - 0.48) * volatility;
+      const trendInfluence = forceDirection !== null ? (forceDirection * 0.015) : (trend * 0.008);
+      const randomChange = (Math.random() - 0.48) * volatility;
+      const change = trendInfluence + randomChange;
       history.push(history[i - 1] * (1 + change));
+      
+      if (Math.random() > 0.85 && forceDirection === null) {
+        trend *= -1;
+      }
     }
     return history;
   }, []);
   
-  const initialStocks = useMemo(() => [
-    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
-    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
-    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
-    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
-  ], [generatePriceHistory]);
+  const initialStocks = useMemo(() => {
+    const stocksData = [
+      { symbol: 'GME', basePrice: 25, volatility: 0.045, selectedChar: 'goku' },
+      { symbol: 'AAPL', basePrice: 170, volatility: 0.02, selectedChar: 'vegeta' },
+      { symbol: 'GOOGL', basePrice: 140, volatility: 0.025, selectedChar: 'goku' },
+      { symbol: 'TSLA', basePrice: 250, volatility: 0.04, selectedChar: 'vegeta' }
+    ];
+    
+    return stocksData.map(stock => {
+      const isUp = Math.random() > 0.5;
+      return {
+        symbol: stock.symbol,
+        color: getColorForStock(stock.symbol, isUp),
+        history: generatePriceHistory(stock.basePrice, stock.volatility, 50, isUp ? 1 : -1),
+        selectedChar: stock.selectedChar,
+        trend: isUp ? 'up' : 'down'
+      };
+    });
+  }, [generatePriceHistory, getColorForStock]);
   
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
@@ -410,6 +439,30 @@ const WaveStockSurfer = () => {
     
     setFetchingPrices(false);
   }, [stocks, trendingStocks]);
+  
+  useEffect(() => {
+    setStocks(prevStocks => 
+      prevStocks.map(stock => {
+        const change = priceChanges[stock.symbol];
+        if (change && change.percent !== undefined) {
+          const isUp = change.percent >= 0;
+          const currentTrend = stock.trend || 'neutral';
+          const newTrend = isUp ? 'up' : 'down';
+          
+          // Only update if trend changed
+          if (currentTrend !== newTrend) {
+            return {
+              ...stock,
+              color: getColorForStock(stock.symbol, isUp),
+              history: generatePriceHistory(stock.history[0], 0.03, 50, isUp ? 1 : -1),
+              trend: newTrend
+            };
+          }
+        }
+        return stock;
+      })
+    );
+  }, [priceChanges, getColorForStock, generatePriceHistory]);
   
   useEffect(() => {
     fetchStockPrices();
@@ -932,11 +985,13 @@ const WaveStockSurfer = () => {
   const handleAddStock = useCallback(() => {
     if (newStock.symbol) {
       const basePrice = Math.random() * 200 + 50;
+      const isUp = Math.random() > 0.5;
       const newStockData = {
         symbol: newStock.symbol.toUpperCase(),
-        color: newStock.color,
-        history: generatePriceHistory(basePrice, 0.03, 50),
-        selectedChar: 'goku'
+        color: getColorForStock(newStock.symbol.toUpperCase(), isUp),
+        history: generatePriceHistory(basePrice, 0.03, 50, isUp ? 1 : -1),
+        selectedChar: 'goku',
+        trend: isUp ? 'up' : 'down'
       };
       
       setStocks(prev => [newStockData, ...prev]);
@@ -952,7 +1007,7 @@ const WaveStockSurfer = () => {
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
       setShowAddForm(false);
     }
-  }, [newStock, colors, stocks.length, generatePriceHistory]);
+  }, [newStock, colors, stocks.length, generatePriceHistory, getColorForStock]);
 
   const addTrendingStock = useCallback((trendingStock) => {
     if (stocks.some(s => s.symbol === trendingStock.symbol)) {
@@ -960,11 +1015,15 @@ const WaveStockSurfer = () => {
     }
     
     const basePrice = Math.random() * 200 + 50;
+    const change = priceChanges[trendingStock.symbol];
+    const isUp = change ? (change.percent >= 0) : (Math.random() > 0.5);
+    
     const newStockData = {
       symbol: trendingStock.symbol,
-      color: trendingStock.color,
-      history: generatePriceHistory(basePrice, 0.03, 50),
-      selectedChar: 'goku'
+      color: getColorForStock(trendingStock.symbol, isUp),
+      history: generatePriceHistory(basePrice, 0.03, 50, isUp ? 1 : -1),
+      selectedChar: 'goku',
+      trend: isUp ? 'up' : 'down'
     };
     
     setStocks(prev => [newStockData, ...prev]);
@@ -976,7 +1035,7 @@ const WaveStockSurfer = () => {
     setWaterTrails(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setCutbackSplashes(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setTargetPositions(prev => ({ ...prev, [trendingStock.symbol]: null }));
-  }, [stocks, generatePriceHistory]);
+  }, [stocks, generatePriceHistory, getColorForStock, priceChanges]);
 
   const removeStock = useCallback((symbol) => {
     setStocks(prev => prev.filter(s => s.symbol !== symbol));
@@ -1266,20 +1325,8 @@ const WaveStockSurfer = () => {
                           className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
                         />
                       </div>
-                      <div className="mb-4">
-                        <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
-                        <div className="flex gap-2 flex-wrap">
-                          {colors.map(color => (
-                            <button
-                              key={color}
-                              onClick={() => setNewStock({ ...newStock, color })}
-                              className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
-                                newStock.color === color ? 'border-white scale-110' : 'border-white/20'
-                              }`}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
+                      <div className="mb-4 text-sm text-blue-200">
+                        💡 Wave color and slope will automatically match if the stock is up (green/blue) or down (red/dark)!
                       </div>
                       <button
                         onClick={() => {
