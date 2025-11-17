@@ -16,6 +16,8 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [playerName, setPlayerName] = useState('');
+  const [leaderboard, setLeaderboard] = useState([]);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -364,6 +366,64 @@ const WaveStockSurfer = () => {
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
   }, [fetchStockPrices]);
+  
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      try {
+        const stored = await window.storage.list('leaderboard:', true);
+        if (stored && stored.keys) {
+          const entries = [];
+          for (const key of stored.keys) {
+            const result = await window.storage.get(key, true);
+            if (result && result.value) {
+              entries.push(JSON.parse(result.value));
+            }
+          }
+          entries.sort((a, b) => b.score - a.score);
+          setLeaderboard(entries.slice(0, 10));
+        }
+      } catch (error) {
+        console.log('Leaderboard not available yet');
+      }
+    };
+    loadLeaderboard();
+  }, []);
+  
+  const submitScore = useCallback(async () => {
+    if (!playerName.trim()) {
+      alert('Please enter your name to submit your score!');
+      return;
+    }
+    
+    try {
+      const entry = {
+        name: playerName.trim(),
+        score: score,
+        streak: streak,
+        timestamp: Date.now()
+      };
+      
+      await window.storage.set(`leaderboard:${Date.now()}-${Math.random()}`, JSON.stringify(entry), true);
+      
+      const stored = await window.storage.list('leaderboard:', true);
+      if (stored && stored.keys) {
+        const entries = [];
+        for (const key of stored.keys) {
+          const result = await window.storage.get(key, true);
+          if (result && result.value) {
+            entries.push(JSON.parse(result.value));
+          }
+        }
+        entries.sort((a, b) => b.score - a.score);
+        setLeaderboard(entries.slice(0, 10));
+      }
+      
+      alert('Score submitted! 🎉');
+    } catch (error) {
+      console.error('Error submitting score:', error);
+      alert('Error submitting score. Please try again.');
+    }
+  }, [playerName, score, streak]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -1100,22 +1160,36 @@ const WaveStockSurfer = () => {
         </div>
         
         {showMenu && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={() => setShowMenu(false)}>
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" 
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowMenu(false);
+              }
+            }}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            <div 
+              className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" 
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+            >
               <div className="flex border-b border-white/20 flex-shrink-0">
                 <button
                   onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
-                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
                     activeMenuTab === 'mywaves' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  🌊 My Waves
+                  🌊 Waves
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
-                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1124,8 +1198,18 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
+                  onClick={() => activeMenuTab === 'leaderboard' ? setShowMenu(false) : setActiveMenuTab('leaderboard')}
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                    activeMenuTab === 'leaderboard' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🏆 Leaders
+                </button>
+                <button
                   onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
-                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1135,7 +1219,7 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
-                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 font-bold transition-all text-xs sm:text-base ${
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1360,6 +1444,82 @@ const WaveStockSurfer = () => {
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'leaderboard' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🏆 Leaderboard</h2>
+                    <p className="text-blue-200 mb-4">Top surfers from around the world!</p>
+                    
+                    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20 mb-6">
+                      <h3 className="text-xl font-bold text-white mb-3">Submit Your Score</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-blue-200 text-sm mb-2 block">Your Name</label>
+                          <input
+                            type="text"
+                            placeholder="Enter your name"
+                            value={playerName}
+                            onChange={(e) => setPlayerName(e.target.value)}
+                            className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300"
+                            maxLength={20}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-blue-200">
+                          <span>Your Score:</span>
+                          <span className="text-2xl font-bold text-blue-400">{score.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-blue-200">
+                          <span>Best Streak:</span>
+                          <span className="text-xl font-bold text-orange-400">{streak}🔥</span>
+                        </div>
+                        <button
+                          onClick={submitScore}
+                          disabled={!playerName.trim()}
+                          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                        >
+                          Submit Score 🎯
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20">
+                      <h3 className="text-xl font-bold text-white mb-4">Top 10 Players</h3>
+                      {leaderboard.length === 0 ? (
+                        <div className="text-center text-blue-200 py-8">
+                          <div className="text-4xl mb-2">🏄‍♂️</div>
+                          <p>No scores yet! Be the first to submit!</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {leaderboard.map((entry, index) => (
+                            <div
+                              key={index}
+                              className={`flex items-center justify-between p-3 rounded-lg ${
+                                index === 0 ? 'bg-yellow-500/20 border border-yellow-500/40' :
+                                index === 1 ? 'bg-gray-400/20 border border-gray-400/40' :
+                                index === 2 ? 'bg-orange-600/20 border border-orange-600/40' :
+                                'bg-white/5'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl font-bold text-white w-8">
+                                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                                </span>
+                                <div>
+                                  <div className="font-bold text-white">{entry.name}</div>
+                                  <div className="text-xs text-blue-300">Streak: {entry.streak}🔥</div>
+                                </div>
+                              </div>
+                              <div className="text-xl font-bold text-blue-400">
+                                {entry.score.toLocaleString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
