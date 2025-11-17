@@ -16,49 +16,6 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const hasFetchedInitial = useRef(false);
-  
-  // Initialize with cached data immediately on mount
-  useEffect(() => {
-    const loadCachedData = async () => {
-      try {
-        const cacheResult = await window.storage.get('stock-prices-cache', true);
-        if (cacheResult && cacheResult.value) {
-          const cachedData = JSON.parse(cacheResult.value);
-          if (cachedData.prices && cachedData.changes) {
-            console.log('Loaded cached prices instantly');
-            setRealPrices(cachedData.prices);
-            setPriceChanges(cachedData.changes);
-            return;
-          }
-        }
-      } catch (error) {
-        console.log('No cache available, will fetch fresh data');
-      }
-      
-      // If no cache, initialize with placeholder data
-      const placeholderPrices = {
-        'GME': 25.50, 'AAPL': 178.20, 'GOOGL': 142.30, 'TSLA': 248.50,
-        'NVDA': 495.20, 'MSFT': 378.90, 'AMZN': 145.80, 'META': 312.50,
-        'NFLX': 445.30, 'AMD': 138.70, 'COIN': 98.40, 'PLTR': 22.60,
-        'RIVN': 14.20, 'SHOP': 68.90, 'SQ': 72.30, 'UBER': 62.80
-      };
-      
-      const placeholderChanges = {};
-      Object.keys(placeholderPrices).forEach(symbol => {
-        const randomChange = (Math.random() - 0.5) * 4;
-        placeholderChanges[symbol] = {
-          amount: randomChange,
-          percent: (randomChange / placeholderPrices[symbol]) * 100
-        };
-      });
-      
-      setRealPrices(placeholderPrices);
-      setPriceChanges(placeholderChanges);
-    };
-    
-    loadCachedData();
-  }, []);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -93,53 +50,24 @@ const WaveStockSurfer = () => {
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
-  const upColors = useMemo(() => ['#34D399', '#10B981', '#22D3EE', '#60A5FA', '#6EE7B7', '#A7F3D0', '#86EFAC'], []);
-  const downColors = useMemo(() => ['#F87171', '#EF4444', '#DC2626', '#B91C1C', '#F43F5E', '#E11D48', '#BE123C'], []);
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
   
-  const getColorForStock = useCallback((symbol, isUp) => {
-    const colorArray = isUp ? upColors : downColors;
-    const hash = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colorArray[hash % colorArray.length];
-  }, [upColors, downColors]);
-  
-  const generatePriceHistory = useCallback((basePrice, volatility, points, forceDirection = null) => {
+  const generatePriceHistory = useCallback((basePrice, volatility, points) => {
     const history = [basePrice];
-    let trend = forceDirection !== null ? forceDirection : (Math.random() > 0.5 ? 1 : -1);
-    
     for (let i = 1; i < points; i++) {
-      const trendInfluence = forceDirection !== null ? (forceDirection * 0.015) : (trend * 0.008);
-      const randomChange = (Math.random() - 0.48) * volatility;
-      const change = trendInfluence + randomChange;
+      const change = (Math.random() - 0.48) * volatility;
       history.push(history[i - 1] * (1 + change));
-      
-      if (Math.random() > 0.85 && forceDirection === null) {
-        trend *= -1;
-      }
     }
     return history;
   }, []);
   
-  const initialStocks = useMemo(() => {
-    const stocksData = [
-      { symbol: 'GME', basePrice: 25, volatility: 0.045, selectedChar: 'goku' },
-      { symbol: 'AAPL', basePrice: 170, volatility: 0.02, selectedChar: 'vegeta' },
-      { symbol: 'GOOGL', basePrice: 140, volatility: 0.025, selectedChar: 'goku' },
-      { symbol: 'TSLA', basePrice: 250, volatility: 0.04, selectedChar: 'vegeta' }
-    ];
-    
-    return stocksData.map(stock => {
-      const isUp = Math.random() > 0.5;
-      return {
-        symbol: stock.symbol,
-        color: getColorForStock(stock.symbol, isUp),
-        history: generatePriceHistory(stock.basePrice, stock.volatility, 50, isUp ? 1 : -1),
-        selectedChar: stock.selectedChar,
-        trend: isUp ? 'up' : 'down'
-      };
-    });
-  }, [generatePriceHistory, getColorForStock]);
+  const initialStocks = useMemo(() => [
+    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
+    { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
+    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
+    { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
+  ], [generatePriceHistory]);
   
   const [stocks, setStocks] = useState(initialStocks);
   const [selectedStock, setSelectedStock] = useState('GME');
@@ -383,148 +311,105 @@ const WaveStockSurfer = () => {
   }, [soundEnabled, initAudio]);
   
   const fetchStockPrices = useCallback(async () => {
+    setFetchingPrices(true);
+    const newPrices = {};
+    const newChanges = {};
+    
+    // Fetch active stocks first for fast loading
     const activeSymbols = stocks.map(s => s.symbol);
     const trendingSymbols = trendingStocks.map(s => s.symbol).filter(s => !activeSymbols.includes(s));
-    const allSymbols = [...activeSymbols, ...trendingSymbols];
     
-    // Try to load cached data first for instant display
-    let usedCache = false;
-    try {
-      const cacheResult = await window.storage.get('stock-prices-cache', true);
-      if (cacheResult && cacheResult.value) {
-        const cachedData = JSON.parse(cacheResult.value);
-        const cacheAge = Date.now() - cachedData.timestamp;
-        
-        // Use cache if less than 2 minutes old
-        if (cacheAge < 120000 && cachedData.prices && cachedData.changes) {
-          console.log('Using cached stock prices');
-          setRealPrices(cachedData.prices);
-          setPriceChanges(cachedData.changes);
-          usedCache = true;
-          
-          // Still fetch in background to update cache
-          if (cacheAge > 60000) {
-            console.log('Cache older than 1 min, refreshing in background');
-          } else {
-            return; // Exit if cache is fresh
-          }
-        }
-      }
-    } catch (error) {
-      console.log('Cache load failed or not found:', error.message);
-    }
-    
-    // Fetch fresh data
-    setFetchingPrices(true);
-    
-    const allFetches = allSymbols.map(async (symbol) => {
+    // Priority 1: Fetch active wave stocks immediately
+    for (const symbol of activeSymbols) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        
         const finnhubResponse = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`,
-          { signal: controller.signal }
+          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
         );
-        
-        clearTimeout(timeoutId);
         
         if (finnhubResponse.ok) {
           const finnhubData = await finnhubResponse.json();
           if (finnhubData.c && finnhubData.c > 0) {
-            return {
-              symbol,
-              price: finnhubData.c,
-              change: {
-                amount: finnhubData.d || 0,
-                percent: finnhubData.dp || 0
-              }
+            newPrices[symbol] = finnhubData.c;
+            newChanges[symbol] = {
+              amount: finnhubData.d || 0,
+              percent: finnhubData.dp || 0
             };
+            // Update state immediately for active stocks
+            setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
+            setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
+            continue;
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const alphaResponse = await fetch(
+          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
+        );
+        
+        if (alphaResponse.ok) {
+          const alphaData = await alphaResponse.json();
+          const quote = alphaData['Global Quote'];
+          if (quote && quote['05. price']) {
+            const price = parseFloat(quote['05. price']);
+            const change = {
+              amount: parseFloat(quote['09. change'] || 0),
+              percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
+            };
+            newPrices[symbol] = price;
+            newChanges[symbol] = change;
+            // Update state immediately for active stocks
+            setRealPrices(prev => ({ ...prev, [symbol]: price }));
+            setPriceChanges(prev => ({ ...prev, [symbol]: change }));
           }
         }
       } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.error(`Error fetching price for ${symbol}:`, error);
-        }
-      }
-      return null;
-    });
-    
-    const results = await Promise.all(allFetches);
-    const newPrices = {};
-    const newChanges = {};
-    
-    results.forEach(result => {
-      if (result) {
-        newPrices[result.symbol] = result.price;
-        newChanges[result.symbol] = result.change;
-      }
-    });
-    
-    // Update state
-    if (Object.keys(newPrices).length > 0) {
-      setRealPrices(prev => ({ ...prev, ...newPrices }));
-      setPriceChanges(prev => ({ ...prev, ...newChanges }));
-      
-      // Cache the data for future visitors
-      try {
-        const cacheData = {
-          prices: newPrices,
-          changes: newChanges,
-          timestamp: Date.now()
-        };
-        await window.storage.set('stock-prices-cache', JSON.stringify(cacheData), true);
-        console.log('Cached stock prices for future visitors');
-      } catch (error) {
-        console.error('Failed to cache stock prices:', error);
+        console.error(`Error fetching price for ${symbol}:`, error);
       }
     }
     
+    // Priority 2: Fetch trending stocks in background (only if menu is open)
+    setTimeout(async () => {
+      for (const symbol of trendingSymbols) {
+        try {
+          const finnhubResponse = await fetch(
+            `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+          );
+          
+          if (finnhubResponse.ok) {
+            const finnhubData = await finnhubResponse.json();
+            if (finnhubData.c && finnhubData.c > 0) {
+              setRealPrices(prev => ({ ...prev, [symbol]: finnhubData.c }));
+              setPriceChanges(prev => ({ ...prev, [symbol]: { amount: finnhubData.d || 0, percent: finnhubData.dp || 0 } }));
+              continue;
+            }
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const alphaResponse = await fetch(
+            `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=UAL2SCJ3884W7O2E`
+          );
+          
+          if (alphaResponse.ok) {
+            const alphaData = await alphaResponse.json();
+            const quote = alphaData['Global Quote'];
+            if (quote && quote['05. price']) {
+              const price = parseFloat(quote['05. price']);
+              const change = {
+                amount: parseFloat(quote['09. change'] || 0),
+                percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
+              };
+              setRealPrices(prev => ({ ...prev, [symbol]: price }));
+              setPriceChanges(prev => ({ ...prev, [symbol]: change }));
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching price for ${symbol}:`, error);
+        }
+      }
+    }, 100);
+    
     setFetchingPrices(false);
   }, [stocks, trendingStocks]);
-  
-  const [stockTrends, setStockTrends] = useState({});
-  
-  useEffect(() => {
-    Object.keys(priceChanges).forEach(symbol => {
-      const change = priceChanges[symbol];
-      if (change && change.percent !== undefined) {
-        const isUp = change.percent >= 0;
-        const newTrend = isUp ? 'up' : 'down';
-        
-        setStockTrends(prev => {
-          if (prev[symbol] !== newTrend) {
-            return { ...prev, [symbol]: newTrend };
-          }
-          return prev;
-        });
-      }
-    });
-  }, [priceChanges]);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStocks(prevStocks => 
-        prevStocks.map(stock => {
-          const newTrend = stockTrends[stock.symbol];
-          const currentTrend = stock.trend || 'neutral';
-          
-          // Only update color and trend, keep history
-          if (newTrend && currentTrend !== newTrend) {
-            const isUp = newTrend === 'up';
-            return {
-              ...stock,
-              color: getColorForStock(stock.symbol, isUp),
-              trend: newTrend
-            };
-          }
-          return stock;
-        })
-      );
-    }, 1000); // Check every second instead of immediately
-    
-    return () => clearInterval(interval);
-  }, [stockTrends, getColorForStock]);
   
   useEffect(() => {
     fetchStockPrices();
@@ -862,21 +747,11 @@ const WaveStockSurfer = () => {
     
     const priceChange = priceChanges[stock.symbol];
     let waveShift = 0;
-    let trendMultiplier = 1;
-    
     if (priceChange) {
       waveShift = Math.max(-10, Math.min(10, priceChange.percent * 1.5));
-      // Apply upward or downward slope based on trend
-      trendMultiplier = priceChange.percent >= 0 ? 0.85 : 1.15;
     }
     
-    const normalizePrice = (price, progress) => {
-      const baseY = height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - waveShift;
-      // Add trend slope: progress goes from 0 to 1 (left to right)
-      const trendAdjustment = (progress - 0.5) * height * 0.15 * (trendMultiplier - 1);
-      return baseY + trendAdjustment;
-    };
-    
+    const normalizePrice = (price) => height * 0.8 - ((price - minPrice) / priceRange) * height * 0.5 - waveShift;
     const offset = time * 0.02;
     const points = [];
     for (let i = 0; i < 60; i++) {
@@ -887,7 +762,7 @@ const WaveStockSurfer = () => {
       const nextIndex = Math.min(index + 1, history.length - 1);
       const t = historyIndex - index;
       const price = history[index] * (1 - t) + history[nextIndex] * t;
-      const y = normalizePrice(price, progress) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
+      const y = normalizePrice(price) + Math.sin(progress * Math.PI * 4 - offset * 3) * 8 + Math.sin(x * 0.3 + time * 0.5) * 2;
       points.push({ x, y });
     }
     let crestIndex = 0;
@@ -1000,7 +875,7 @@ const WaveStockSurfer = () => {
     const realPrice = realPrices[stock.symbol];
     const change = priceChanges[stock.symbol];
     
-    if (realPrice && change !== undefined) {
+    if (realPrice && change) {
       const isPositive = change.percent >= 0;
       const priceColor = isPositive ? '#34D399' : '#F87171';
       
@@ -1015,13 +890,13 @@ const WaveStockSurfer = () => {
       
       ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
       ctx.fillStyle = priceColor;
-      ctx.fillText(`${change.amount >= 0 ? '+' : ''}${change.amount.toFixed(2)}`, 15, 78);
-    } else if (fetchingPrices) {
+      ctx.fillText(`${change.amount >= 0 ? '+' : ''}${Math.abs(change.amount).toFixed(2)}`, 15, 78);
+    } else {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
       ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
       ctx.fillText('Loading...', 15, 35);
     }
-  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges, fetchingPrices]);
+  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges]);
   
   useEffect(() => {
     let animationFrame;
@@ -1057,13 +932,11 @@ const WaveStockSurfer = () => {
   const handleAddStock = useCallback(() => {
     if (newStock.symbol) {
       const basePrice = Math.random() * 200 + 50;
-      const isUp = Math.random() > 0.5;
       const newStockData = {
         symbol: newStock.symbol.toUpperCase(),
-        color: getColorForStock(newStock.symbol.toUpperCase(), isUp),
-        history: generatePriceHistory(basePrice, 0.03, 50, isUp ? 1 : -1),
-        selectedChar: 'goku',
-        trend: isUp ? 'up' : 'down'
+        color: newStock.color,
+        history: generatePriceHistory(basePrice, 0.03, 50),
+        selectedChar: 'goku'
       };
       
       setStocks(prev => [newStockData, ...prev]);
@@ -1079,7 +952,7 @@ const WaveStockSurfer = () => {
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
       setShowAddForm(false);
     }
-  }, [newStock, colors, stocks.length, generatePriceHistory, getColorForStock]);
+  }, [newStock, colors, stocks.length, generatePriceHistory]);
 
   const addTrendingStock = useCallback((trendingStock) => {
     if (stocks.some(s => s.symbol === trendingStock.symbol)) {
@@ -1087,15 +960,11 @@ const WaveStockSurfer = () => {
     }
     
     const basePrice = Math.random() * 200 + 50;
-    const change = priceChanges[trendingStock.symbol];
-    const isUp = change ? (change.percent >= 0) : (Math.random() > 0.5);
-    
     const newStockData = {
       symbol: trendingStock.symbol,
-      color: getColorForStock(trendingStock.symbol, isUp),
-      history: generatePriceHistory(basePrice, 0.03, 50, isUp ? 1 : -1),
-      selectedChar: 'goku',
-      trend: isUp ? 'up' : 'down'
+      color: trendingStock.color,
+      history: generatePriceHistory(basePrice, 0.03, 50),
+      selectedChar: 'goku'
     };
     
     setStocks(prev => [newStockData, ...prev]);
@@ -1107,7 +976,7 @@ const WaveStockSurfer = () => {
     setWaterTrails(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setCutbackSplashes(prev => ({ ...prev, [trendingStock.symbol]: [] }));
     setTargetPositions(prev => ({ ...prev, [trendingStock.symbol]: null }));
-  }, [stocks, generatePriceHistory, getColorForStock, priceChanges]);
+  }, [stocks, generatePriceHistory]);
 
   const removeStock = useCallback((symbol) => {
     setStocks(prev => prev.filter(s => s.symbol !== symbol));
@@ -1397,8 +1266,20 @@ const WaveStockSurfer = () => {
                           className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
                         />
                       </div>
-                      <div className="mb-4 text-sm text-blue-200">
-                        💡 Wave color and slope will automatically match if the stock is up (green/blue) or down (red/dark)!
+                      <div className="mb-4">
+                        <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {colors.map(color => (
+                            <button
+                              key={color}
+                              onClick={() => setNewStock({ ...newStock, color })}
+                              className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
                       </div>
                       <button
                         onClick={() => {
