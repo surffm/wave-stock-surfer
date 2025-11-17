@@ -16,18 +16,6 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [leaderboard] = useState([
-    { rank: 1, name: 'WaveKing🌊', score: 125000, streak: 45, emoji: '👑' },
-    { rank: 2, name: 'SurfMaster', score: 98500, streak: 38, emoji: '🏄‍♂️' },
-    { rank: 3, name: 'TideRider', score: 87300, streak: 35, emoji: '🌟' },
-    { rank: 4, name: 'OceanPro', score: 76200, streak: 32, emoji: '⚡' },
-    { rank: 5, name: 'WaveNinja', score: 68900, streak: 29, emoji: '🥷' },
-    { rank: 6, name: 'CrestLegend', score: 61500, streak: 27, emoji: '🦸‍♂️' },
-    { rank: 7, name: 'SplashHero', score: 55800, streak: 24, emoji: '💫' },
-    { rank: 8, name: 'TsunamiKid', score: 49200, streak: 22, emoji: '🌊' },
-    { rank: 9, name: 'BarrelBoss', score: 43700, streak: 19, emoji: '🎯' },
-    { rank: 10, name: 'FoamKing', score: 38100, streak: 17, emoji: '✨' }
-  ]);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -1315,7 +1303,7 @@ const WaveStockSurfer = () => {
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
                     <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                       {trendingStocks.map(stock => {
                         const isAdded = stocks.some(s => s.symbol === stock.symbol);
                         return (
@@ -1346,6 +1334,46 @@ const WaveStockSurfer = () => {
                           </button>
                         );
                       })}
+                    </div>
+                    
+                    <div className="border-t border-white/20 pt-6">
+                      <h3 className="text-xl font-bold text-white mb-4">➕ Add New Wave</h3>
+                      <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                        <div className="grid grid-cols-1 gap-4 mb-4">
+                          <input
+                            type="text"
+                            placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                            value={newStock.symbol}
+                            onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                            className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
+                          />
+                        </div>
+                        <div className="mb-4">
+                          <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {colors.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => setNewStock({ ...newStock, color })}
+                                className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                  newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                                }`}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleAddStock();
+                            setShowMenu(false);
+                          }}
+                          disabled={!newStock.symbol}
+                          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                        >
+                          🌊 Add Wave
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="border-t border-white/20 pt-6 mt-6">
