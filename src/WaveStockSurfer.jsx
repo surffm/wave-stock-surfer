@@ -958,6 +958,26 @@ const WaveStockSurfer = () => {
     }
   }, [selectedStock, stocks]);
 
+  const moveStockUp = useCallback((symbol) => {
+    setStocks(prev => {
+      const index = prev.findIndex(s => s.symbol === symbol);
+      if (index <= 0) return prev;
+      const newStocks = [...prev];
+      [newStocks[index - 1], newStocks[index]] = [newStocks[index], newStocks[index - 1]];
+      return newStocks;
+    });
+  }, []);
+
+  const moveStockDown = useCallback((symbol) => {
+    setStocks(prev => {
+      const index = prev.findIndex(s => s.symbol === symbol);
+      if (index < 0 || index >= prev.length - 1) return prev;
+      const newStocks = [...prev];
+      [newStocks[index], newStocks[index + 1]] = [newStocks[index + 1], newStocks[index]];
+      return newStocks;
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
@@ -1074,7 +1094,7 @@ const WaveStockSurfer = () => {
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
-                  onClick={() => setActiveMenuTab('trending')}
+                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
@@ -1084,7 +1104,7 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('add')}
+                  onClick={() => activeMenuTab === 'add' ? setShowMenu(false) : setActiveMenuTab('add')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'add' 
                       ? 'bg-blue-600 text-white' 
@@ -1094,7 +1114,7 @@ const WaveStockSurfer = () => {
                   ➕ Add Waves
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('faq')}
+                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
@@ -1104,7 +1124,7 @@ const WaveStockSurfer = () => {
                   ❓ FAQ
                 </button>
                 <button
-                  onClick={() => setActiveMenuTab('mission')}
+                  onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
                   className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
@@ -1267,7 +1287,7 @@ const WaveStockSurfer = () => {
         )}
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {stocks.map((stock) => {
+          {stocks.map((stock, index) => {
             const char = getCharacter(selectedChars[stock.symbol]);
             const isSelected = selectedStock === stock.symbol;
             
@@ -1283,15 +1303,50 @@ const WaveStockSurfer = () => {
                 }`}
                 style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeStock(stock.symbol);
-                  }}
-                  className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors z-10"
-                >
-                  <X size={20} />
-                </button>
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockUp(stock.symbol);
+                      }}
+                      disabled={index === 0}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === 0 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockDown(stock.symbol);
+                      }}
+                      disabled={index === stocks.length - 1}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === stocks.length - 1 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeStock(stock.symbol);
+                    }}
+                    className="text-white/50 hover:text-white transition-colors"
+                    title="Remove stock"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
                 
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
