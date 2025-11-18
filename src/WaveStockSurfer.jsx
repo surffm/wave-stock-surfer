@@ -16,6 +16,19 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+const [playerName, setPlayerName] = useState('');
+const [leaderboard, setLeaderboard] = useState([
+  { name: 'WaveMaster', score: 15420, streak: 28 },
+  { name: 'SurfKing', score: 12850, streak: 22 },
+  { name: 'OceanRider', score: 11200, streak: 19 },
+  { name: 'TideBreaker', score: 9750, streak: 17 },
+  { name: 'CoastalPro', score: 8900, streak: 15 },
+  { name: 'BeachBoss', score: 7600, streak: 13 },
+  { name: 'WaveWarrior', score: 6500, streak: 11 },
+  { name: 'SurfNinja', score: 5200, streak: 9 },
+  { name: 'CrestChaser', score: 4100, streak: 8 },
+  { name: 'AquaAce', score: 3500, streak: 6 }
+]);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -364,6 +377,60 @@ const WaveStockSurfer = () => {
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
   }, [fetchStockPrices]);
+
+useEffect(() => {
+    const loadLeaderboard = async () => {
+      try {
+        const stored = await window.storage.list('leaderboard:', true);
+        if (stored && stored.keys) {
+          const entries = [];
+          for (const key of stored.keys) {
+            const result = await window.storage.get(key, true);
+            if (result && result.value) {
+              entries.push(JSON.parse(result.value));
+            }
+          }
+          entries.sort((a, b) => b.score - a.score);
+          setLeaderboard(entries.slice(0, 10));
+        }
+      } catch (error) {
+        console.log('Leaderboard not available yet');
+      }
+    };
+    loadLeaderboard();
+  }, []);
+  
+  const submitScore = useCallback(async () => {
+    if (!playerName.trim()) {
+      return;
+    }
+    
+    try {
+      const entry = {
+        name: playerName.trim(),
+        score: score,
+        streak: streak,
+        timestamp: Date.now()
+      };
+      
+      await window.storage.set(`leaderboard:${Date.now()}-${Math.random()}`, JSON.stringify(entry), true);
+      
+      const stored = await window.storage.list('leaderboard:', true);
+      if (stored && stored.keys) {
+        const entries = [];
+        for (const key of stored.keys) {
+          const result = await window.storage.get(key, true);
+          if (result && result.value) {
+            entries.push(JSON.parse(result.value));
+          }
+        }
+        entries.sort((a, b) => b.score - a.score);
+        setLeaderboard(entries.slice(0, 10));
+      }
+    } catch (error) {
+      console.error('Error submitting score:', error);
+    }
+  }, [playerName, score, streak]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -1131,7 +1198,7 @@ const WaveStockSurfer = () => {
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  ❓ FAQ
+                  🏆 Leaderboard
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
@@ -1438,68 +1505,174 @@ const WaveStockSurfer = () => {
                   </div>
                 )}
                 {activeMenuTab === 'faq' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
-                    <div className="space-y-4 text-blue-100">
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I play?</h3>
-                        <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">What are the water effects?</h3>
-                        <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I spin?</h3>
-                        <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I unlock characters?</h3>
-                        <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">Are these real stock prices?</h3>
-                        <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
-                        <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-white/20 pt-6 mt-6">
-                      <button
-                        onClick={() => setShowMenu(false)}
-                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
-                      >
-                        Close Menu
-                      </button>
-                    </div>
-                  </div>
-                )}
+  <div>
+    <h2 className="text-3xl font-bold mb-4 text-white">🏆 Leaderboard</h2>
+    <p className="text-blue-200 mb-4">Top surfers from around the world!</p>
+    
+    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20 mb-6">
+      <h3 className="text-xl font-bold text-white mb-3">Submit Your Score</h3>
+      <div className="space-y-3">
+        <div>
+          <label className="text-blue-200 text-sm mb-2 block">Your Name</label>
+          <input
+            type="text"
+            placeholder="Enter your name"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300"
+            maxLength={20}
+          />
+        </div>
+        <div className="flex items-center justify-between text-blue-200">
+          <span>Your Score:</span>
+          <span className="text-2xl font-bold text-blue-400">{score.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center justify-between text-blue-200">
+          <span>Best Streak:</span>
+          <span className="text-xl font-bold text-orange-400">{streak}🔥</span>
+        </div>
+        <button
+          onClick={submitScore}
+          disabled={!playerName.trim()}
+          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+        >
+          Submit Score 🎯
+        </button>
+      </div>
+    </div>
+    
+    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20">
+      <h3 className="text-xl font-bold text-white mb-4">Top 10 Players</h3>
+      {leaderboard.length === 0 ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="text-4xl mb-2">🏄‍♂️</div>
+          <p>No scores yet! Be the first to submit!</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {leaderboard.map((entry, index) => (
+            <div
+              key={index}
+              className={`flex items-center justify-between p-3 rounded-lg ${
+                index === 0 ? 'bg-yellow-500/20 border border-yellow-500/40' :
+                index === 1 ? 'bg-gray-400/20 border border-gray-400/40' :
+                index === 2 ? 'bg-orange-600/20 border border-orange-600/40' :
+                'bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-white w-8">
+                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                </span>
+                <div>
+                  <div className="font-bold text-white">{entry.name}</div>
+                  <div className="text-xs text-blue-300">Streak: {entry.streak}🔥</div>
+                </div>
+              </div>
+              <div className="text-xl font-bold text-blue-400">
+                {entry.score.toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+    
+    <div className="border-t border-white/20 pt-6 mt-6">
+      <button
+        onClick={() => setShowMenu(false)}
+        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+      >
+        Close Menu
+      </button>
+    </div>
+  </div>
+)}
                 
                 {activeMenuTab === 'mission' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
-                      ℹ️ About Stock Surfer
-                    </h2>
-                    <div className="space-y-3 text-blue-100 text-base">
-                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! �️</p>
-                      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-                      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-                      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
-                    </div>
-                    
-                    <div className="border-t border-white/20 pt-6 mt-6">
-                      <button
-                        onClick={() => setShowMenu(false)}
-                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
-                      >
-                        Close Menu
-                      </button>
-                    </div>
-                  </div>
-                )}
+  <div>
+    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
+      ℹ️ About Stock Surfer
+    </h2>
+    <div className="space-y-3 text-blue-100 text-base">
+      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏄‍♂️</p>
+      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
+    </div>
+    
+    <div className="border-t border-white/20 pt-6 mt-6">
+      <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
+      <div className="space-y-4 text-blue-100">
+        <div className="bg-white/5 rounded-lg p-4">
+          <h3 className="font-bold text-lg mb-2 text-blue-300">How do I play?</h3>
+          <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
+        </div>
+        <div className="bg-white/5 rounded-lg p-4">
+          <h3 className="font-bold text-lg mb-2 text-blue-300">What are the water effects?</h3>
+          <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
+        </div>
+        <div className="bg-white/5 rounded-lg p-4">
+          <h3 className="font-bold text-lg mb-2 text-blue-300">How do I spin?</h3>
+          <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
+        </div>
+        <div className="bg-white/5 rounded-lg p-4">
+          <h3 className="font-bold text-lg mb-2 text-blue-300">How do I unlock characters?</h3>
+          <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
+        </div>
+        <div className="bg-white/5 rounded-lg p-4">
+          <h3 className="font-bold text-lg mb-2 text-blue-300">Are these real stock prices?</h3>
+          <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
+        </div>
+        <div className="bg-white/5 rounded-lg p-4">
+          <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
+          <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
+        </div>
+      </div>
+    </div>
+    
+    <div className="border-t border-white/20 pt-6 mt-6">
+      <h3 className="text-2xl font-bold mb-4 text-white">🌊 Our Story — Ride the Wave With Us</h3>
+      <div className="space-y-3 text-blue-100 text-base">
+        <p>Hi there! 👋 We're the small, curious team behind <strong>Wave Stock Surfer</strong> — a weird, fun experiment that turned into something way bigger than we expected.</p>
+        <p>It all started with a simple idea: <strong>What if checking stock prices felt like surfing?</strong> Not stressful. Not boring. Just... fun.</p>
+        <p>So we built a tiny prototype in our living room. No money, no investors — just passion, snacks, and a ridiculous amount of trial and error. Eventually, we launched Wave Stock Surfer, and to our surprise, people <em>loved</em> it. Gamers, traders, kids, parents... everyone started catching the wave.</p>
+        <p>And now you're here. Which means the wave is still growing. 🌊✨</p>
+      </div>
+      
+      <h3 className="text-2xl font-bold mb-4 mt-6 text-white">💙 Why We Ask for Support</h3>
+      <div className="space-y-3 text-blue-100 text-base">
+        <p>We don't run ads. We don't sell data. We don't lock features behind paywalls.</p>
+        <p>Wave Stock Surfer runs on our nights, weekends, caffeine, and the support of people who believe in what we're building.</p>
+        <p>If our game has made you smile... If you've enjoyed checking your daily trends in a new way... If you just like supporting small indie creators...</p>
+        <p>Then your donation — even $1 — helps us:</p>
+        <ul className="list-disc list-inside space-y-1 ml-4">
+          <li>💻 Keep the servers running</li>
+          <li>🎮 Add new features</li>
+          <li>🎉 Release fun updates & events</li>
+          <li>🆓 Keep the game totally free for everyone</li>
+        </ul>
+        <p>We want to keep building Wave Stock Surfer into something special, and <strong>your support is what makes that possible.</strong></p>
+      </div>
+      
+      <h3 className="text-2xl font-bold mb-4 mt-6 text-white">🙏 Support the Wave</h3>
+      <div className="space-y-3 text-blue-100 text-base">
+        <p>If you'd like to help us keep improving the game, you can donate at the bottom of the page. No pressure, no expectations — just good vibes and gratitude. 🏄‍♂️💙</p>
+        <p>Every little bit helps us keep riding this crazy wave with you.</p>
+        <p className="text-lg font-semibold">Thank you for being part of our journey. Let's keep surfing. 🌊🎮</p>
+      </div>
+    </div>
+    
+    <div className="border-t border-white/20 pt-6 mt-6">
+      <button
+        onClick={() => setShowMenu(false)}
+        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+      >
+        Close Menu
+      </button>
+    </div>
+  </div>
+)}
                 </div>
               </div>
             </div>
