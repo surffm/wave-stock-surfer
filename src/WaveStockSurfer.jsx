@@ -16,8 +16,6 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [playerName, setPlayerName] = useState('');
-  const [leaderboard, setLeaderboard] = useState([]);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -366,64 +364,6 @@ const WaveStockSurfer = () => {
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
   }, [fetchStockPrices]);
-  
-  useEffect(() => {
-    const loadLeaderboard = async () => {
-      try {
-        const stored = await window.storage.list('leaderboard:', true);
-        if (stored && stored.keys) {
-          const entries = [];
-          for (const key of stored.keys) {
-            const result = await window.storage.get(key, true);
-            if (result && result.value) {
-              entries.push(JSON.parse(result.value));
-            }
-          }
-          entries.sort((a, b) => b.score - a.score);
-          setLeaderboard(entries.slice(0, 10));
-        }
-      } catch (error) {
-        console.log('Leaderboard not available yet');
-      }
-    };
-    loadLeaderboard();
-  }, []);
-  
-  const submitScore = useCallback(async () => {
-    if (!playerName.trim()) {
-      alert('Please enter your name to submit your score!');
-      return;
-    }
-    
-    try {
-      const entry = {
-        name: playerName.trim(),
-        score: score,
-        streak: streak,
-        timestamp: Date.now()
-      };
-      
-      await window.storage.set(`leaderboard:${Date.now()}-${Math.random()}`, JSON.stringify(entry), true);
-      
-      const stored = await window.storage.list('leaderboard:', true);
-      if (stored && stored.keys) {
-        const entries = [];
-        for (const key of stored.keys) {
-          const result = await window.storage.get(key, true);
-          if (result && result.value) {
-            entries.push(JSON.parse(result.value));
-          }
-        }
-        entries.sort((a, b) => b.score - a.score);
-        setLeaderboard(entries.slice(0, 10));
-      }
-      
-      alert('Score submitted! 🎉');
-    } catch (error) {
-      console.error('Error submitting score:', error);
-      alert('Error submitting score. Please try again.');
-    }
-  }, [playerName, score, streak]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -1160,36 +1100,22 @@ const WaveStockSurfer = () => {
         </div>
         
         {showMenu && (
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" 
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowMenu(false);
-              }
-            }}
-            onTouchMove={(e) => e.stopPropagation()}
-          >
-            <div 
-              className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" 
-              onClick={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              onTouchMove={(e) => e.stopPropagation()}
-              onTouchEnd={(e) => e.stopPropagation()}
-            >
-              <div className="flex border-b border-white/20 flex-shrink-0">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex border-b border-white/20">
                 <button
                   onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'mywaves' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  🌊 Waves
+                  🌊 My Waves
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'trending' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1198,18 +1124,8 @@ const WaveStockSurfer = () => {
                   🔥 Trending
                 </button>
                 <button
-                  onClick={() => activeMenuTab === 'leaderboard' ? setShowMenu(false) : setActiveMenuTab('leaderboard')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
-                    activeMenuTab === 'leaderboard' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  🏆 Leaders
-                </button>
-                <button
                   onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'faq' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1219,7 +1135,7 @@ const WaveStockSurfer = () => {
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
-                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                  className={`flex-1 px-6 py-4 font-bold transition-all ${
                     activeMenuTab === 'mission' 
                       ? 'bg-blue-600 text-white' 
                       : 'text-blue-300 hover:bg-white/5'
@@ -1229,7 +1145,8 @@ const WaveStockSurfer = () => {
                 </button>
               </div>
               
-              <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+              <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+                <div className="p-6">
                 {activeMenuTab === 'mywaves' && (
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white">🌊 My Waves</h2>
@@ -1255,7 +1172,7 @@ const WaveStockSurfer = () => {
                                 setSelectedStock(stock.symbol);
                                 setShowMenu(false);
                               }}
-                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all cursor-pointer hover:border-white/40 ${
+                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all cursor-pointer hover:bg-white/15 ${
                                 isSelected ? 'border-green-400' : 'border-white/20'
                               }`}
                             >
@@ -1372,39 +1289,12 @@ const WaveStockSurfer = () => {
                     </div>
                     
                     <div className="border-t border-white/20 pt-6 mt-6">
-                      <h3 className="text-xl font-bold text-white mb-4">🔥 Trending Stocks</h3>
-                      <p className="text-blue-200 mb-4 text-sm">Click any stock to add it to your waves!</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {trendingStocks.map(stock => {
-                          const isAdded = stocks.some(s => s.symbol === stock.symbol);
-                          return (
-                            <button
-                              key={stock.symbol}
-                              onClick={() => {
-                                if (!isAdded) {
-                                  addTrendingStock(stock);
-                                }
-                              }}
-                              disabled={isAdded}
-                              className={`p-3 rounded-lg border-2 transition-all text-left ${
-                                isAdded 
-                                  ? 'bg-white/5 border-green-400 cursor-default' 
-                                  : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-lg font-bold text-white">{stock.symbol}</span>
-                                {isAdded && <span className="text-green-400 text-xs">✓</span>}
-                              </div>
-                              <div className="text-xs text-blue-200">{stock.name}</div>
-                              <div 
-                                className="w-full h-2 rounded-full mt-2" 
-                                style={{ backgroundColor: stock.color }}
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <button
+                        onClick={() => setShowMenu(false)}
+                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        Close Menu
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1413,7 +1303,7 @@ const WaveStockSurfer = () => {
                   <div>
                     <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
                     <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                       {trendingStocks.map(stock => {
                         const isAdded = stocks.some(s => s.symbol === stock.symbol);
                         return (
@@ -1445,81 +1335,54 @@ const WaveStockSurfer = () => {
                         );
                       })}
                     </div>
-                  </div>
-                )}
-                
-                {activeMenuTab === 'leaderboard' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white">🏆 Leaderboard</h2>
-                    <p className="text-blue-200 mb-4">Top surfers from around the world!</p>
                     
-                    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20 mb-6">
-                      <h3 className="text-xl font-bold text-white mb-3">Submit Your Score</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-blue-200 text-sm mb-2 block">Your Name</label>
+                    <div className="border-t border-white/20 pt-6">
+                      <h3 className="text-xl font-bold text-white mb-4">➕ Add New Wave</h3>
+                      <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                        <div className="grid grid-cols-1 gap-4 mb-4">
                           <input
                             type="text"
-                            placeholder="Enter your name"
-                            value={playerName}
-                            onChange={(e) => setPlayerName(e.target.value)}
-                            className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300"
-                            maxLength={20}
+                            placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                            value={newStock.symbol}
+                            onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                            className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
                           />
                         </div>
-                        <div className="flex items-center justify-between text-blue-200">
-                          <span>Your Score:</span>
-                          <span className="text-2xl font-bold text-blue-400">{score.toLocaleString()}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-blue-200">
-                          <span>Best Streak:</span>
-                          <span className="text-xl font-bold text-orange-400">{streak}🔥</span>
+                        <div className="mb-4">
+                          <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {colors.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => setNewStock({ ...newStock, color })}
+                                className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                  newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                                }`}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
                         </div>
                         <button
-                          onClick={submitScore}
-                          disabled={!playerName.trim()}
+                          onClick={() => {
+                            handleAddStock();
+                            setShowMenu(false);
+                          }}
+                          disabled={!newStock.symbol}
                           className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
                         >
-                          Submit Score 🎯
+                          🌊 Add Wave
                         </button>
                       </div>
                     </div>
                     
-                    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20">
-                      <h3 className="text-xl font-bold text-white mb-4">Top 10 Players</h3>
-                      {leaderboard.length === 0 ? (
-                        <div className="text-center text-blue-200 py-8">
-                          <div className="text-4xl mb-2">🏄‍♂️</div>
-                          <p>No scores yet! Be the first to submit!</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {leaderboard.map((entry, index) => (
-                            <div
-                              key={index}
-                              className={`flex items-center justify-between p-3 rounded-lg ${
-                                index === 0 ? 'bg-yellow-500/20 border border-yellow-500/40' :
-                                index === 1 ? 'bg-gray-400/20 border border-gray-400/40' :
-                                index === 2 ? 'bg-orange-600/20 border border-orange-600/40' :
-                                'bg-white/5'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="text-2xl font-bold text-white w-8">
-                                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
-                                </span>
-                                <div>
-                                  <div className="font-bold text-white">{entry.name}</div>
-                                  <div className="text-xs text-blue-300">Streak: {entry.streak}🔥</div>
-                                </div>
-                              </div>
-                              <div className="text-xl font-bold text-blue-400">
-                                {entry.score.toLocaleString()}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <div className="border-t border-white/20 pt-6 mt-6">
+                      <button
+                        onClick={() => setShowMenu(false)}
+                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        Close Menu
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1563,6 +1426,15 @@ const WaveStockSurfer = () => {
                         🌊 Add Wave
                       </button>
                     </div>
+                    
+                    <div className="border-t border-white/20 pt-6 mt-6">
+                      <button
+                        onClick={() => setShowMenu(false)}
+                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        Close Menu
+                      </button>
+                    </div>
                   </div>
                 )}
                 {activeMenuTab === 'faq' && (
@@ -1594,6 +1466,15 @@ const WaveStockSurfer = () => {
                         <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
                       </div>
                     </div>
+                    
+                    <div className="border-t border-white/20 pt-6 mt-6">
+                      <button
+                        onClick={() => setShowMenu(false)}
+                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        Close Menu
+                      </button>
+                    </div>
                   </div>
                 )}
                 
@@ -1603,22 +1484,23 @@ const WaveStockSurfer = () => {
                       ℹ️ About Stock Surfer
                     </h2>
                     <div className="space-y-3 text-blue-100 text-base">
-                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! �️</p>
                       <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
                       <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
                       <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
                     </div>
+                    
+                    <div className="border-t border-white/20 pt-6 mt-6">
+                      <button
+                        onClick={() => setShowMenu(false)}
+                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        Close Menu
+                      </button>
+                    </div>
                   </div>
                 )}
-              </div>
-              
-              <div className="border-t border-white/20 p-3 sm:p-4 bg-black/20 flex-shrink-0">
-                <button
-                  onClick={() => setShowMenu(false)}
-                  className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors text-base sm:text-lg"
-                >
-                  Close Menu
-                </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1772,7 +1654,8 @@ const WaveStockSurfer = () => {
         </div>
         
         <div className="text-center text-blue-200 text-sm mb-6">
-          💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
+          <div>💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!</div>
+          <div className="mt-2 text-xs opacity-75">This site is for entertainment purposes only and does not provide financial advice.</div>
         </div>
 
         <div className="text-center mb-6">
