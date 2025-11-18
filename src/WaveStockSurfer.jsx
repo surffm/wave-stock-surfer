@@ -1659,8 +1659,7 @@ useEffect(() => {
       
       <h3 className="text-2xl font-bold mb-4 mt-6 text-white">🙏 Support the Wave</h3>
       <div className="space-y-3 text-blue-100 text-base">
-        <p>If you'd like to help us keep improving the game, you can donate at the bottom of the page.</p>
-<p>No pressure, no expectations — just good vibes and gratitude. 🏄‍♂️💙</p>
+        <p>If you'd like to help us keep improving the game, you can donate at the bottom of the page. No pressure, no expectations — just good vibes and gratitude. 🏄‍♂️💙</p>
         <p>Every little bit helps us keep riding this crazy wave with you.</p>
         <p className="text-lg font-semibold">Thank you for being part of our journey. Let's keep surfing. 🌊🎮</p>
       </div>
@@ -1688,7 +1687,7 @@ useEffect(() => {
           </div>
         )}
         
-        <div className="grid grid-cols-1 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {stocks.length === 0 ? (
             <div className="col-span-full bg-white/10 backdrop-blur-md rounded-2xl p-12 border-2 border-white/20 text-center">
               <div className="text-6xl mb-4">🌊</div>
@@ -1784,21 +1783,11 @@ useEffect(() => {
                 
                 <canvas
                   ref={el => canvasRefs.current[stock.symbol] = el}
-                  width={800}
-  height={250}
-  onClick={(e) => handleStockCardTouch(e, stock.symbol)}
-  onMouseDown={(e) => handleStockCardTouch(e, stock.symbol)}
-  onMouseMove={(e) => {
-    if (e.buttons === 1) handleStockCardTouch(e, stock.symbol);
-  }}
-  onMouseUp={handleCanvasTouchEnd}
-  onMouseLeave={handleCanvasTouchEnd}
-  onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
-  onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
-  onTouchEnd={handleCanvasTouchEnd}
-  className="w-full h-48 md:h-64 mb-3 rounded-lg cursor-pointer select-none"
-  style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-/>
+                  width={600}
+                  height={200}
+                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
+                  style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+                />
                 
                 <div className="border-t border-white/20 pt-3">
                   <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
