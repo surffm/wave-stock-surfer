@@ -1687,7 +1687,7 @@ useEffect(() => {
           </div>
         )}
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 gap-6 mb-6">
           {stocks.length === 0 ? (
             <div className="col-span-full bg-white/10 backdrop-blur-md rounded-2xl p-12 border-2 border-white/20 text-center">
               <div className="text-6xl mb-4">🌊</div>
@@ -1783,11 +1783,11 @@ useEffect(() => {
                 
                 <canvas
                   ref={el => canvasRefs.current[stock.symbol] = el}
-                  width={600}
-                  height={200}
-                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
-                  style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-                />
+                  width={800}
+  height={250}
+  className="w-full h-64 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
+  style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+/>
                 
                 <div className="border-t border-white/20 pt-3">
                   <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
