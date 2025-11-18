@@ -76,9 +76,9 @@ const [leaderboard, setLeaderboard] = useState([
   }, []);
   
   const initialStocks = useMemo(() => [
-    { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
+    { symbol: 'GME', color: '#34D399', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
     { symbol: 'AAPL', color: '#60A5FA', history: generatePriceHistory(170, 0.02, 50), selectedChar: 'vegeta' },
-    { symbol: 'GOOGL', color: '#34D399', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
+    { symbol: 'GOOGL', color: '#EC4899', history: generatePriceHistory(140, 0.025, 50), selectedChar: 'goku' },
     { symbol: 'TSLA', color: '#F87171', history: generatePriceHistory(250, 0.04, 50), selectedChar: 'vegeta' }
   ], [generatePriceHistory]);
   
@@ -947,14 +947,19 @@ useEffect(() => {
   const getCharacter = useCallback((charId) => characters.find(c => c.id === charId), [characters]);
 
   const handleAddStock = useCallback(() => {
-    if (newStock.symbol) {
-      const basePrice = Math.random() * 200 + 50;
-      const newStockData = {
-        symbol: newStock.symbol.toUpperCase(),
-        color: newStock.color,
-        history: generatePriceHistory(basePrice, 0.03, 50),
-        selectedChar: 'goku'
-      };
+  if (newStock.symbol) {
+    // Check if stock already exists
+    if (stocks.some(s => s.symbol === newStock.symbol.toUpperCase())) {
+      return; // Don't add duplicate
+    }
+    
+    const basePrice = Math.random() * 200 + 50;
+    const newStockData = {
+      symbol: newStock.symbol.toUpperCase(),
+      color: newStock.color,
+      history: generatePriceHistory(basePrice, 0.03, 50),
+      selectedChar: 'goku'
+    };
       
       setStocks(prev => [newStockData, ...prev]);
       setSelectedChars(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: 'goku' }));
