@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Sparkles, Zap, TrendingUp, Info, Plus, X, Trophy } from 'lucide-react';
+import { Sparkles, Zap, TrendingUp, Info, Plus, X } from 'lucide-react';
 
 const WaveStockSurfer = () => {
   const [score, setScore] = useState(0);
@@ -9,14 +9,15 @@ const WaveStockSurfer = () => {
   const [activeMenuTab, setActiveMenuTab] = useState('mywaves');
   const [powerUp, setPowerUp] = useState(null);
   const [celebration, setCelebration] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', color: '#60A5FA' });
   const [isMobile, setIsMobile] = useState(false);
   const [realPrices, setRealPrices] = useState({});
   const [priceChanges, setPriceChanges] = useState({});
+  const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [leaderboard, setLeaderboard] = useState([]);
   const [playerName, setPlayerName] = useState('');
-  const [showNameInput, setShowNameInput] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
   
   const audioContextRef = useRef(null);
   const oceanNoiseRef = useRef(null);
@@ -62,752 +63,6 @@ const WaveStockSurfer = () => {
     }
     return history;
   }, []);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-6">
-          <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            Stock Surf 🌊
-          </h1>
-          <p className="text-blue-200 text-lg">
-            {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-blue-200 font-medium">Score</span>
-                <span className="text-2xl font-bold text-blue-400">{score.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-blue-200 font-medium flex items-center gap-1">
-                  <TrendingUp size={16} />
-                  Streak
-                </span>
-                <span className="text-xl font-bold text-orange-400">{streak}🔥</span>
-              </div>
-              {multiplier > 1 && (
-                <div className="flex items-center justify-between animate-pulse">
-                  <span className="text-blue-200 font-medium flex items-center gap-1">
-                    <Sparkles size={16} />
-                    Multiplier
-                  </span>
-                  <span className="text-xl font-bold text-purple-400">×{multiplier}</span>
-                </div>
-              )}
-
-        {celebration && (
-          <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
-            <div className="text-2xl animate-bounce text-center">🎉✨🏆✨🎉</div>
-          </div>
-        )}
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {stocks.length === 0 ? (
-            <div className="col-span-full bg-white/10 backdrop-blur-md rounded-2xl p-12 border-2 border-white/20 text-center">
-              <div className="text-6xl mb-4">🌊</div>
-              <h3 className="text-2xl font-bold text-white mb-2">No waves yet!</h3>
-              <p className="text-blue-200 mb-6">Add some stocks to start surfing</p>
-              <button
-                onClick={() => {
-                  setShowMenu(true);
-                  setActiveMenuTab('mywaves');
-                }}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-full inline-flex items-center gap-2 transition-all shadow-lg"
-              >
-                <Plus size={20} />
-                Add Your First Wave
-              </button>
-            </div>
-          ) : (
-            stocks.map((stock, index) => {
-            const char = getCharacter(selectedChars[stock.symbol]);
-            const isSelected = selectedStock === stock.symbol;
-            
-            return (
-              <div 
-                key={stock.symbol}
-                onClick={() => setSelectedStock(stock.symbol)}
-                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
-                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
-                onTouchEnd={handleCanvasTouchEnd}
-                className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative select-none ${
-                  isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
-                }`}
-                style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-              >
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-                  <div className="flex flex-col gap-0.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStockUp(stock.symbol);
-                      }}
-                      disabled={index === 0}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                        index === 0 
-                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                      }`}
-                      title="Move up"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStockDown(stock.symbol);
-                      }}
-                      disabled={index === stocks.length - 1}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                        index === stocks.length - 1 
-                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                      }`}
-                      title="Move down"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeStock(stock.symbol);
-                    }}
-                    className="text-white/50 hover:text-white transition-colors"
-                    title="Remove stock"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-3xl font-bold text-white">{stock.symbol}</h3>
-                      {isSelected && <span className="text-green-400 text-sm font-bold">● ACTIVE</span>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{char?.emoji}</span>
-                      <div className="text-right">
-                        <div className="text-xs text-blue-300">{char?.name}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <canvas
-                  ref={el => canvasRefs.current[stock.symbol] = el}
-                  width={600}
-                  height={200}
-                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
-                  style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-                />
-                
-                <div className="border-t border-white/20 pt-3">
-                  <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {characters.map(char => {
-                      const isUnlocked = unlockedChars.includes(char.id);
-                      const isCharSelected = selectedChars[stock.symbol] === char.id;
-                      
-                      return (
-                        <button
-                          key={char.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            selectCharacter(stock.symbol, char.id);
-                          }}
-                          disabled={!isUnlocked}
-                          className={`
-                            relative w-12 h-12 rounded-lg flex items-center justify-center text-2xl
-                            transition-all duration-200 border-2
-                            ${isCharSelected ? 'border-blue-400 scale-110 shadow-lg' : 'border-white/20'}
-                            ${isUnlocked ? 'hover:scale-105 cursor-pointer bg-white/10' : 'opacity-40 cursor-not-allowed bg-white/5'}
-                          `}
-                          title={isUnlocked ? char.name : char.unlock}
-                        >
-                          {char.emoji}
-                          {!isUnlocked && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg text-xs">
-                              🔒
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          }))}
-        </div>
-        
-        <div className="text-center text-blue-200 text-sm mb-6">
-          <div>💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!</div>
-          <div className="mt-2 text-xs opacity-75">This site is for entertainment purposes only and does not provide financial advice.</div>
-        </div>
-
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <button
-              onClick={() => {
-                setShowMenu(true);
-                setActiveMenuTab('mywaves');
-              }}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
-            >
-              <Info size={20} />
-              Menu
-            </button>
-            <button
-              onClick={() => {
-                setShowMenu(true);
-                setActiveMenuTab('add');
-              }}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
-            >
-              <Plus size={20} />
-              Add Wave
-            </button>
-            <button
-              onClick={toggleSound}
-              className={`px-6 py-3 rounded-full font-bold transition-all shadow-lg ${
-                soundEnabled 
-                  ? 'bg-green-500 hover:bg-green-600 text-white' 
-                  : 'bg-gray-500 hover:bg-gray-600 text-white'
-              }`}
-            >
-              {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex justify-center gap-4 mb-6">
-          <a
-            href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
-          >
-            Donate
-          </a>
-          <a
-            href="mailto:surf.fm.official@gmail.com"
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
-          >
-            Contact
-          </a>
-        </div>
-      </div>
-      
-      {isMobile && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleJump();
-            }}
-            onClick={handleJump}
-            className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform select-none"
-            style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-          >
-            ⬆️
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default WaveStockSurfer;
-              {powerUp && (
-                <div className="bg-yellow-400/20 border-2 border-yellow-400 rounded-lg p-2 animate-pulse">
-                  <div className="flex items-center gap-2 text-yellow-300 font-bold text-sm">
-                    <Zap size={16} />
-                    {powerUp.toUpperCase()} BOOST!
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-            <h2 className="text-xl font-bold text-white mb-3">Controls</h2>
-            <div className="space-y-3">
-              {isMobile ? (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">👆 Touch & Hold</span>
-                    <span>Surf anywhere! 💧</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
-                    <span>Jump! Keep tapping to spin! 🌀</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-2 py-1 bg-white/20 rounded">←</kbd>
-                    <kbd className="px-2 py-1 bg-white/20 rounded">→</kbd>
-                    <span>Move & See Water Spray! 💧</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-2 py-1 bg-white/20 rounded">↑</kbd>
-                    <kbd className="px-2 py-1 bg-white/20 rounded">↓</kbd>
-                    <span>Carve Up/Down Wave</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-blue-200">
-                    <kbd className="px-3 py-1 bg-white/20 rounded">SPACE</kbd>
-                    <span>Jump! Keep pressing to SPIN! 🌀</span>
-                  </div>
-                </>
-              )}
-              <div className="flex items-center gap-2 text-sm text-blue-200">
-                <span className="text-green-400 font-bold">● {selectedStock}</span>
-                <span>← Selected (click wave)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <button
-              onClick={() => {
-                setShowMenu(true);
-                setActiveMenuTab('mywaves');
-              }}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
-            >
-              <Info size={20} />
-              Menu
-            </button>
-            <button
-              onClick={() => {
-                setShowMenu(true);
-                setActiveMenuTab('add');
-              }}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
-            >
-              <Plus size={20} />
-              Add Wave
-            </button>
-          </div>
-        </div>
-        
-        {showMenu && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="flex border-b border-white/20">
-                <button
-                  onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'mywaves' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  🌊 My Waves
-                </button>
-                <button
-                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'trending' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  🔥 Trending
-                </button>
-                <button
-                  onClick={() => activeMenuTab === 'leaderboard' ? setShowMenu(false) : setActiveMenuTab('leaderboard')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'leaderboard' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  🏆 Leaderboard
-                </button>
-                <button
-                  onClick={() => activeMenuTab === 'info' ? setShowMenu(false) : setActiveMenuTab('info')}
-                  className={`flex-1 px-6 py-4 font-bold transition-all ${
-                    activeMenuTab === 'info' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-blue-300 hover:bg-white/5'
-                  }`}
-                >
-                  ℹ️ Info
-                </button>
-              </div>
-              
-              <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
-                <div className="p-6">
-                
-                {activeMenuTab === 'leaderboard' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
-                      <Trophy size={32} className="text-yellow-400" />
-                      Leaderboard
-                    </h2>
-                    
-                    {showNameInput && (
-                      <div className="bg-green-500/10 border-2 border-green-500 rounded-xl p-4 mb-6">
-                        <h3 className="text-lg font-bold text-green-400 mb-3">Save Your Score!</h3>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Enter your name"
-                            value={playerName}
-                            onChange={(e) => setPlayerName(e.target.value)}
-                            className="flex-1 bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-blue-300"
-                            maxLength={20}
-                          />
-                          <button
-                            onClick={saveScore}
-                            disabled={!playerName.trim()}
-                            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold px-6 py-2 rounded-lg transition-colors"
-                          >
-                            Save
-                          </button>
-                        </div>
-                        <p className="text-sm text-blue-200 mt-2">Your score: {score.toLocaleString()} • Streak: {streak}</p>
-                      </div>
-                    )}
-                    
-                    {!showNameInput && score > 0 && (
-                      <div className="bg-white/5 rounded-xl p-4 mb-6 border border-white/20">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-blue-200">Current Score: <span className="text-white font-bold">{score.toLocaleString()}</span></p>
-                            <p className="text-blue-200 text-sm">Streak: {streak}🔥</p>
-                          </div>
-                          <button
-                            onClick={() => setShowNameInput(true)}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold px-4 py-2 rounded-lg transition-colors"
-                          >
-                            Submit Score
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-3">
-                      {leaderboard.length === 0 ? (
-                        <div className="bg-white/5 rounded-xl p-8 border border-white/20 text-center">
-                          <Trophy size={48} className="mx-auto mb-3 text-yellow-400/50" />
-                          <p className="text-blue-200">No scores yet! Be the first to submit!</p>
-                        </div>
-                      ) : (
-                        leaderboard.map((entry, index) => (
-                          <div 
-                            key={entry.timestamp}
-                            className={`rounded-xl p-4 border-2 ${
-                              index === 0 ? 'bg-yellow-500/10 border-yellow-500' :
-                              index === 1 ? 'bg-gray-300/10 border-gray-400' :
-                              index === 2 ? 'bg-orange-700/10 border-orange-600' :
-                              'bg-white/5 border-white/20'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className={`text-2xl font-bold ${
-                                  index === 0 ? 'text-yellow-400' :
-                                  index === 1 ? 'text-gray-400' :
-                                  index === 2 ? 'text-orange-600' :
-                                  'text-blue-300'
-                                }`}>
-                                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-                                </div>
-                                <div>
-                                  <div className="text-white font-bold">{entry.name}</div>
-                                  <div className="text-sm text-blue-200">Streak: {entry.streak}🔥</div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-2xl font-bold text-white">{entry.score.toLocaleString()}</div>
-                                <div className="text-xs text-blue-300">
-                                  {new Date(entry.timestamp).toLocaleDateString()}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    
-                    <div className="border-t border-white/20 pt-6 mt-6">
-                      <button
-                        onClick={() => setShowMenu(false)}
-                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
-                      >
-                        Close Menu
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                {activeMenuTab === 'info' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
-                      ℹ️ About Stock Surf
-                    </h2>
-                    <div className="space-y-4 text-blue-100">
-                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
-                      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
-                      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
-                      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
-                      
-                      <div className="border-t border-white/20 pt-4 mt-6">
-                        <h3 className="text-2xl font-bold mb-3 text-white">❓ How to Play</h3>
-                        <div className="space-y-3">
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="font-bold text-lg mb-2 text-blue-300">Controls</h4>
-                            <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="font-bold text-lg mb-2 text-blue-300">Water Effects</h4>
-                            <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="font-bold text-lg mb-2 text-blue-300">Spinning Tricks</h4>
-                            <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="font-bold text-lg mb-2 text-blue-300">Unlock Characters</h4>
-                            <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="font-bold text-lg mb-2 text-blue-300">Real Stock Prices</h4>
-                            <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
-                          </div>
-                          <div className="bg-white/5 rounded-lg p-4">
-                            <h4 className="font-bold text-lg mb-2 text-blue-300">Adding Stocks</h4>
-                            <p className="text-sm">Click the "My Waves" or "Trending" tabs to add any stock symbol you want to watch!</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-white/20 pt-6 mt-6">
-                      <button
-                        onClick={() => setShowMenu(false)}
-                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
-                      >
-                        Close Menu
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                {activeMenuTab === 'mywaves' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white">🌊 My Waves</h2>
-                    <p className="text-blue-200 mb-4">Manage your current stock waves</p>
-                    
-                    {stocks.length === 0 ? (
-                      <div className="bg-white/5 rounded-xl p-8 border border-white/20 text-center mb-6">
-                        <div className="text-4xl mb-3">🏄‍♂️</div>
-                        <p className="text-blue-200 mb-4">No waves yet! Add some stocks to get started.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3 mb-6">
-                        {stocks.map((stock, index) => {
-                          const char = getCharacter(selectedChars[stock.symbol]);
-                          const isSelected = selectedStock === stock.symbol;
-                          const realPrice = realPrices[stock.symbol];
-                          const change = priceChanges[stock.symbol];
-                          
-                          return (
-                            <div 
-                              key={stock.symbol}
-                              onClick={() => {
-                                setSelectedStock(stock.symbol);
-                                setShowMenu(false);
-                              }}
-                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all cursor-pointer hover:bg-white/15 ${
-                                isSelected ? 'border-green-400' : 'border-white/20'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-2xl">{char?.emoji}</span>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="text-xl font-bold text-white">{stock.symbol}</h3>
-                                      {isSelected && <span className="text-green-400 text-xs font-bold">● ACTIVE</span>}
-                                    </div>
-                                    {realPrice && change && (
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <span className="text-white font-semibold">${realPrice.toFixed(2)}</span>
-                                        <span className={change.percent >= 0 ? 'text-green-400' : 'text-red-400'}>
-                                          {change.percent >= 0 ? '↑' : '↓'} {Math.abs(change.percent).toFixed(2)}%
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      moveStockUp(stock.symbol);
-                                    }}
-                                    disabled={index === 0}
-                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
-                                      index === 0 
-                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                                        : 'bg-white/20 hover:bg-white/30 text-white'
-                                    }`}
-                                  >
-                                    ↑
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      moveStockDown(stock.symbol);
-                                    }}
-                                    disabled={index === stocks.length - 1}
-                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
-                                      index === stocks.length - 1 
-                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                                        : 'bg-white/20 hover:bg-white/30 text-white'
-                                    }`}
-                                  >
-                                    ↓
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeStock(stock.symbol);
-                                    }}
-                                    className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-100 flex items-center justify-center transition-all"
-                                  >
-                                    <X size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                              
-                              <div 
-                                className="w-full h-2 rounded-full mt-2" 
-                                style={{ backgroundColor: stock.color }}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    
-                    <div className="border-t border-white/20 pt-6">
-                      <h3 className="text-xl font-bold text-white mb-4">➕ Add New Wave</h3>
-                      <div className="bg-white/10 rounded-xl p-6 border border-white/20">
-                        <div className="grid grid-cols-1 gap-4 mb-4">
-                          <input
-                            type="text"
-                            placeholder="Stock Symbol (e.g., NVDA, AAPL)"
-                            value={newStock.symbol}
-                            onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
-                            className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
-                          />
-                        </div>
-                        <div className="mb-4">
-                          <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
-                          <div className="flex gap-2 flex-wrap">
-                            {colors.map(color => (
-                              <button
-                                key={color}
-                                onClick={() => setNewStock({ ...newStock, color })}
-                                className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
-                                  newStock.color === color ? 'border-white scale-110' : 'border-white/20'
-                                }`}
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            handleAddStock();
-                          }}
-                          disabled={!newStock.symbol}
-                          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
-                        >
-                          🌊 Add Wave
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-white/20 pt-6 mt-6">
-                      <button
-                        onClick={() => setShowMenu(false)}
-                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
-                      >
-                        Close Menu
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                {activeMenuTab === 'trending' && (
-                  <div>
-                    <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
-                    <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                      {trendingStocks.map(stock => {
-                        const isAdded = stocks.some(s => s.symbol === stock.symbol);
-                        return (
-                          <button
-                            key={stock.symbol}
-                            onClick={() => {
-                              if (!isAdded) {
-                                addTrendingStock(stock);
-                                setShowMenu(false);
-                              }
-                            }}
-                            disabled={isAdded}
-                            className={`p-4 rounded-lg border-2 transition-all text-left ${
-                              isAdded 
-                                ? 'bg-white/5 border-green-400 cursor-default' 
-                                : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-2xl font-bold text-white">{stock.symbol}</span>
-                              {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
-                            </div>
-                            <div className="text-sm text-blue-200">{stock.name}</div>
-                            <div 
-                              className="w-full h-2 rounded-full mt-2" 
-                              style={{ backgroundColor: stock.color }}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    
-                    <div className="border-t border-white/20 pt-6 mt-6">
-                      <button
-                        onClick={() => setShowMenu(false)}
-                        className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors"
-                      >
-                        Close Menu
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
   
   const initialStocks = useMemo(() => [
     { symbol: 'GME', color: '#EC4899', history: generatePriceHistory(25, 0.045, 50), selectedChar: 'goku' },
@@ -829,50 +84,6 @@ export default WaveStockSurfer;
   const [targetPositions, setTargetPositions] = useState(stocks.reduce((acc, stock) => ({ ...acc, [stock.symbol]: null }), {}));
   const touchingRef = useRef(false);
   const currentTouchStock = useRef(null);
-  
-  const loadLeaderboard = useCallback(async () => {
-    try {
-      const result = await window.storage.list('leaderboard:', true);
-      if (result && result.keys) {
-        const entries = await Promise.all(
-          result.keys.map(async (key) => {
-            const data = await window.storage.get(key, true);
-            return data ? JSON.parse(data.value) : null;
-          })
-        );
-        const sorted = entries
-          .filter(e => e !== null)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 10);
-        setLeaderboard(sorted);
-      }
-    } catch (error) {
-      console.log('Leaderboard not available');
-    }
-  }, []);
-  
-  const saveScore = useCallback(async () => {
-    if (!playerName.trim() || score === 0) return;
-    
-    try {
-      const entry = {
-        name: playerName.trim(),
-        score: score,
-        streak: streak,
-        timestamp: Date.now()
-      };
-      
-      await window.storage.set(`leaderboard:${Date.now()}`, JSON.stringify(entry), true);
-      await loadLeaderboard();
-      setShowNameInput(false);
-    } catch (error) {
-      console.log('Could not save score');
-    }
-  }, [playerName, score, streak, loadLeaderboard]);
-  
-  useEffect(() => {
-    loadLeaderboard();
-  }, [loadLeaderboard]);
   
   const initAudio = useCallback(() => {
     if (audioContextRef.current) return;
@@ -1030,6 +241,14 @@ export default WaveStockSurfer;
     }
   }, [soundEnabled]);
   
+  const playScoreSound = useCallback(() => {
+    return;
+  }, []);
+  
+  const playStreakSound = useCallback(() => {
+    return;
+  }, []);
+  
   const playCelebrationSound = useCallback(() => {
     if (!soundEnabled || !audioContextRef.current) return;
 
@@ -1067,6 +286,10 @@ export default WaveStockSurfer;
       console.error('Sound playback error:', error);
     }
   }, [soundEnabled]);
+
+  const playPowerUpSound = useCallback(() => {
+    return;
+  }, []);
   
   const toggleSound = useCallback(() => {
     if (!soundEnabled) {
@@ -1090,6 +313,7 @@ export default WaveStockSurfer;
   }, [soundEnabled, initAudio]);
   
   const fetchStockPrices = useCallback(async () => {
+    setFetchingPrices(true);
     const newPrices = {};
     const newChanges = {};
     
@@ -1134,6 +358,7 @@ export default WaveStockSurfer;
     
     setRealPrices(newPrices);
     setPriceChanges(newChanges);
+    setFetchingPrices(false);
   }, [stocks]);
   
   useEffect(() => {
@@ -1141,6 +366,64 @@ export default WaveStockSurfer;
     const interval = setInterval(fetchStockPrices, 30000);
     return () => clearInterval(interval);
   }, [fetchStockPrices]);
+  
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      try {
+        const stored = await window.storage.list('leaderboard:', true);
+        if (stored && stored.keys) {
+          const entries = [];
+          for (const key of stored.keys) {
+            const result = await window.storage.get(key, true);
+            if (result && result.value) {
+              entries.push(JSON.parse(result.value));
+            }
+          }
+          entries.sort((a, b) => b.score - a.score);
+          setLeaderboard(entries.slice(0, 10));
+        }
+      } catch (error) {
+        console.log('Leaderboard not available yet');
+      }
+    };
+    loadLeaderboard();
+  }, []);
+  
+  const submitScore = useCallback(async () => {
+    if (!playerName.trim()) {
+      alert('Please enter your name to submit your score!');
+      return;
+    }
+    
+    try {
+      const entry = {
+        name: playerName.trim(),
+        score: score,
+        streak: streak,
+        timestamp: Date.now()
+      };
+      
+      await window.storage.set(`leaderboard:${Date.now()}-${Math.random()}`, JSON.stringify(entry), true);
+      
+      const stored = await window.storage.list('leaderboard:', true);
+      if (stored && stored.keys) {
+        const entries = [];
+        for (const key of stored.keys) {
+          const result = await window.storage.get(key, true);
+          if (result && result.value) {
+            entries.push(JSON.parse(result.value));
+          }
+        }
+        entries.sort((a, b) => b.score - a.score);
+        setLeaderboard(entries.slice(0, 10));
+      }
+      
+      alert('Score submitted! 🎉');
+    } catch (error) {
+      console.error('Error submitting score:', error);
+      alert('Error submitting score. Please try again.');
+    }
+  }, [playerName, score, streak]);
   
   useEffect(() => {
     const checkMobile = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -1184,6 +467,8 @@ export default WaveStockSurfer;
     touchingRef.current = false;
     currentTouchStock.current = null;
   }, []);
+  
+  const jumpTimeoutRef = useRef(null);
   
   const handleJump = useCallback(() => {
     if (selectedStock) {
@@ -1424,52 +709,38 @@ export default WaveStockSurfer;
   
   useEffect(() => {
     const newUnlocked = [...unlockedChars];
-    let updated = false;
-    
-    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); updated = true; }
-    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); updated = true; }
-    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); updated = true; }
-    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); updated = true; }
-    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); updated = true; }
-    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); updated = true; }
-    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); updated = true; }
-    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); updated = true; }
-    
-    if (updated) {
-      setUnlockedChars(newUnlocked);
-      setCelebration(true);
-      playCelebrationSound();
-      setTimeout(() => setCelebration(false), 2000);
-    }
+    if (streak >= 5 && !newUnlocked.includes('gohan')) { newUnlocked.push('gohan'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 1000 && !newUnlocked.includes('piccolo')) { newUnlocked.push('piccolo'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 3 && !newUnlocked.includes('trunks')) { newUnlocked.push('trunks'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 10 && !newUnlocked.includes('krillin')) { newUnlocked.push('krillin'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 20 && !newUnlocked.includes('dolphin')) { newUnlocked.push('dolphin'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (score >= 5000 && !newUnlocked.includes('cat')) { newUnlocked.push('cat'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (powerUpCount >= 10 && !newUnlocked.includes('unicorn')) { newUnlocked.push('unicorn'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    if (streak >= 15 && !newUnlocked.includes('wolf')) { newUnlocked.push('wolf'); setCelebration(true); playCelebrationSound(); setTimeout(() => setCelebration(false), 2000); }
+    setUnlockedChars(newUnlocked);
   }, [streak, score, powerUpCount, unlockedChars, playCelebrationSound]);
   
   useEffect(() => {
     const interval = setInterval(() => {
       setScore(s => s + (Math.floor(Math.random() * 50) + 20) * multiplier);
-      
+      playScoreSound();
       if (Math.random() > 0.3) {
         setStreak(s => {
           const newStreak = s + 1;
-          if (newStreak % 5 === 0) { 
-            setMultiplier(m => Math.min(m + 0.5, 5)); 
-            setCelebration(true); 
-            setTimeout(() => setCelebration(false), 1500); 
-          }
+          if (newStreak % 5 === 0) { setMultiplier(m => Math.min(m + 0.5, 5)); setCelebration(true); playStreakSound(); setTimeout(() => setCelebration(false), 1500); }
+          else { playStreakSound(); }
           return newStreak;
         });
-      } else { 
-        setStreak(0); 
-        setMultiplier(1); 
-      }
-      
+      } else { setStreak(0); setMultiplier(1); }
       if (Math.random() > 0.85) {
         setPowerUp(['speed', 'glow', 'foam', 'multiplier'][Math.floor(Math.random() * 4)]);
         setPowerUpCount(c => c + 1);
+        playPowerUpSound();
         setTimeout(() => setPowerUp(null), 3000);
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [multiplier]);
+  }, [multiplier, playScoreSound, playStreakSound, playPowerUpSound]);
   
   const drawWave = useCallback((canvas, stock, time) => {
     if (!canvas) return;
@@ -1687,6 +958,7 @@ export default WaveStockSurfer;
       setTargetPositions(prev => ({ ...prev, [newStock.symbol.toUpperCase()]: null }));
       
       setNewStock({ symbol: '', color: colors[stocks.length % colors.length] });
+      setShowAddForm(false);
     }
   }, [newStock, colors, stocks.length, generatePriceHistory]);
 
@@ -1775,3 +1047,805 @@ export default WaveStockSurfer;
       return newStocks;
     });
   }, []);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-32">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-6">
+          <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+            Stock Surf 🌊
+          </h1>
+          <p className="text-blue-200 text-lg">
+            {isMobile ? 'Touch & hold the wave to surf!' : 'Use arrow keys to carve and surf!'}
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-blue-200 font-medium">Score</span>
+                <span className="text-2xl font-bold text-blue-400">{score.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-blue-200 font-medium flex items-center gap-1">
+                  <TrendingUp size={16} />
+                  Streak
+                </span>
+                <span className="text-xl font-bold text-orange-400">{streak}🔥</span>
+              </div>
+              {multiplier > 1 && (
+                <div className="flex items-center justify-between animate-pulse">
+                  <span className="text-blue-200 font-medium flex items-center gap-1">
+                    <Sparkles size={16} />
+                    Multiplier
+                  </span>
+                  <span className="text-xl font-bold text-purple-400">×{multiplier}</span>
+                </div>
+              )}
+              {powerUp && (
+                <div className="bg-yellow-400/20 border-2 border-yellow-400 rounded-lg p-2 animate-pulse">
+                  <div className="flex items-center gap-2 text-yellow-300 font-bold text-sm">
+                    <Zap size={16} />
+                    {powerUp.toUpperCase()} BOOST!
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+            <h2 className="text-xl font-bold text-white mb-3">Controls</h2>
+            <div className="space-y-3">
+              {isMobile ? (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-blue-200">
+                    <span className="px-3 py-1 bg-white/20 rounded">👆 Touch & Hold</span>
+                    <span>Surf anywhere! 💧</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-blue-200">
+                    <span className="px-3 py-1 bg-white/20 rounded">⬆️ Button</span>
+                    <span>Jump! Keep tapping to spin! 🌀</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-blue-200">
+                    <kbd className="px-2 py-1 bg-white/20 rounded">←</kbd>
+                    <kbd className="px-2 py-1 bg-white/20 rounded">→</kbd>
+                    <span>Move & See Water Spray! 💧</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-blue-200">
+                    <kbd className="px-2 py-1 bg-white/20 rounded">↑</kbd>
+                    <kbd className="px-2 py-1 bg-white/20 rounded">↓</kbd>
+                    <span>Carve Up/Down Wave</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-blue-200">
+                    <kbd className="px-3 py-1 bg-white/20 rounded">SPACE</kbd>
+                    <span>Jump! Keep pressing to SPIN! 🌀</span>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-2 text-sm text-blue-200">
+                <span className="text-green-400 font-bold">● {selectedStock}</span>
+                <span>← Selected (click wave)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('mywaves');
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Info size={20} />
+              Menu
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('add');
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Wave
+            </button>
+          </div>
+        </div>
+        
+        {showMenu && (
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" 
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowMenu(false);
+              }
+            }}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            <div 
+              className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col" 
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+            >
+              <div className="flex border-b border-white/20 flex-shrink-0">
+                <button
+                  onClick={() => activeMenuTab === 'mywaves' ? setShowMenu(false) : setActiveMenuTab('mywaves')}
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                    activeMenuTab === 'mywaves' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🌊 Waves
+                </button>
+                <button
+                  onClick={() => activeMenuTab === 'trending' ? setShowMenu(false) : setActiveMenuTab('trending')}
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                    activeMenuTab === 'trending' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🔥 Trending
+                </button>
+                <button
+                  onClick={() => activeMenuTab === 'leaderboard' ? setShowMenu(false) : setActiveMenuTab('leaderboard')}
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                    activeMenuTab === 'leaderboard' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  🏆 Leaders
+                </button>
+                <button
+                  onClick={() => activeMenuTab === 'faq' ? setShowMenu(false) : setActiveMenuTab('faq')}
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                    activeMenuTab === 'faq' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  ❓ FAQ
+                </button>
+                <button
+                  onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
+                  className={`flex-1 px-2 sm:px-4 py-3 sm:py-4 font-bold transition-all text-xs sm:text-sm ${
+                    activeMenuTab === 'mission' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-blue-300 hover:bg-white/5'
+                  }`}
+                >
+                  ℹ️ Info
+                </button>
+              </div>
+              
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+                {activeMenuTab === 'mywaves' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🌊 My Waves</h2>
+                    <p className="text-blue-200 mb-4">Manage your current stock waves</p>
+                    
+                    {stocks.length === 0 ? (
+                      <div className="bg-white/5 rounded-xl p-8 border border-white/20 text-center mb-6">
+                        <div className="text-4xl mb-3">🏄‍♂️</div>
+                        <p className="text-blue-200 mb-4">No waves yet! Add some stocks to get started.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 mb-6">
+                        {stocks.map((stock, index) => {
+                          const char = getCharacter(selectedChars[stock.symbol]);
+                          const isSelected = selectedStock === stock.symbol;
+                          const realPrice = realPrices[stock.symbol];
+                          const change = priceChanges[stock.symbol];
+                          
+                          return (
+                            <div 
+                              key={stock.symbol}
+                              onClick={() => {
+                                setSelectedStock(stock.symbol);
+                                setShowMenu(false);
+                              }}
+                              className={`bg-white/10 rounded-xl p-4 border-2 transition-all cursor-pointer hover:border-white/40 ${
+                                isSelected ? 'border-green-400' : 'border-white/20'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-2xl">{char?.emoji}</span>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="text-xl font-bold text-white">{stock.symbol}</h3>
+                                      {isSelected && <span className="text-green-400 text-xs font-bold">● ACTIVE</span>}
+                                    </div>
+                                    {realPrice && change && (
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-white font-semibold">${realPrice.toFixed(2)}</span>
+                                        <span className={change.percent >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                          {change.percent >= 0 ? '↑' : '↓'} {Math.abs(change.percent).toFixed(2)}%
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveStockUp(stock.symbol);
+                                    }}
+                                    disabled={index === 0}
+                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                                      index === 0 
+                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                                        : 'bg-white/20 hover:bg-white/30 text-white'
+                                    }`}
+                                    title="Move up"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveStockDown(stock.symbol);
+                                    }}
+                                    disabled={index === stocks.length - 1}
+                                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                                      index === stocks.length - 1 
+                                        ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                                        : 'bg-white/20 hover:bg-white/30 text-white'
+                                    }`}
+                                    title="Move down"
+                                  >
+                                    ↓
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeStock(stock.symbol);
+                                    }}
+                                    className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-100 flex items-center justify-center transition-all"
+                                    title="Remove stock"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <div 
+                                className="w-full h-2 rounded-full mt-2" 
+                                style={{ backgroundColor: stock.color }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    <div className="border-t border-white/20 pt-6">
+                      <h3 className="text-xl font-bold text-white mb-4">➕ Add New Wave</h3>
+                      <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                        <div className="grid grid-cols-1 gap-4 mb-4">
+                          <input
+                            type="text"
+                            placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                            value={newStock.symbol}
+                            onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                            className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
+                          />
+                        </div>
+                        <div className="mb-4">
+                          <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {colors.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => setNewStock({ ...newStock, color })}
+                                className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                  newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                                }`}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleAddStock();
+                          }}
+                          disabled={!newStock.symbol}
+                          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                        >
+                          🌊 Add Wave
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-white/20 pt-6 mt-6">
+                      <h3 className="text-xl font-bold text-white mb-4">🔥 Trending Stocks</h3>
+                      <p className="text-blue-200 mb-4 text-sm">Click any stock to add it to your waves!</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {trendingStocks.map(stock => {
+                          const isAdded = stocks.some(s => s.symbol === stock.symbol);
+                          return (
+                            <button
+                              key={stock.symbol}
+                              onClick={() => {
+                                if (!isAdded) {
+                                  addTrendingStock(stock);
+                                }
+                              }}
+                              disabled={isAdded}
+                              className={`p-3 rounded-lg border-2 transition-all text-left ${
+                                isAdded 
+                                  ? 'bg-white/5 border-green-400 cursor-default' 
+                                  : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-lg font-bold text-white">{stock.symbol}</span>
+                                {isAdded && <span className="text-green-400 text-xs">✓</span>}
+                              </div>
+                              <div className="text-xs text-blue-200">{stock.name}</div>
+                              <div 
+                                className="w-full h-2 rounded-full mt-2" 
+                                style={{ backgroundColor: stock.color }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'trending' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🔥 Trending Stocks</h2>
+                    <p className="text-blue-200 mb-4">Click any stock to add it to your waves!</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {trendingStocks.map(stock => {
+                        const isAdded = stocks.some(s => s.symbol === stock.symbol);
+                        return (
+                          <button
+                            key={stock.symbol}
+                            onClick={() => {
+                              if (!isAdded) {
+                                addTrendingStock(stock);
+                                setShowMenu(false);
+                              }
+                            }}
+                            disabled={isAdded}
+                            className={`p-4 rounded-lg border-2 transition-all text-left ${
+                              isAdded 
+                                ? 'bg-white/5 border-green-400 cursor-default' 
+                                : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20 cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-2xl font-bold text-white">{stock.symbol}</span>
+                              {isAdded && <span className="text-green-400 text-sm">✓ Added</span>}
+                            </div>
+                            <div className="text-sm text-blue-200">{stock.name}</div>
+                            <div 
+                              className="w-full h-2 rounded-full mt-2" 
+                              style={{ backgroundColor: stock.color }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'leaderboard' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">🏆 Leaderboard</h2>
+                    <p className="text-blue-200 mb-4">Top surfers from around the world!</p>
+                    
+                    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20 mb-6">
+                      <h3 className="text-xl font-bold text-white mb-3">Submit Your Score</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-blue-200 text-sm mb-2 block">Your Name</label>
+                          <input
+                            type="text"
+                            placeholder="Enter your name"
+                            value={playerName}
+                            onChange={(e) => setPlayerName(e.target.value)}
+                            className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300"
+                            maxLength={20}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-blue-200">
+                          <span>Your Score:</span>
+                          <span className="text-2xl font-bold text-blue-400">{score.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-blue-200">
+                          <span>Best Streak:</span>
+                          <span className="text-xl font-bold text-orange-400">{streak}🔥</span>
+                        </div>
+                        <button
+                          onClick={submitScore}
+                          disabled={!playerName.trim()}
+                          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                        >
+                          Submit Score 🎯
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20">
+                      <h3 className="text-xl font-bold text-white mb-4">Top 10 Players</h3>
+                      {leaderboard.length === 0 ? (
+                        <div className="text-center text-blue-200 py-8">
+                          <div className="text-4xl mb-2">🏄‍♂️</div>
+                          <p>No scores yet! Be the first to submit!</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {leaderboard.map((entry, index) => (
+                            <div
+                              key={index}
+                              className={`flex items-center justify-between p-3 rounded-lg ${
+                                index === 0 ? 'bg-yellow-500/20 border border-yellow-500/40' :
+                                index === 1 ? 'bg-gray-400/20 border border-gray-400/40' :
+                                index === 2 ? 'bg-orange-600/20 border border-orange-600/40' :
+                                'bg-white/5'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl font-bold text-white w-8">
+                                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                                </span>
+                                <div>
+                                  <div className="font-bold text-white">{entry.name}</div>
+                                  <div className="text-xs text-blue-300">Streak: {entry.streak}🔥</div>
+                                </div>
+                              </div>
+                              <div className="text-xl font-bold text-blue-400">
+                                {entry.score.toLocaleString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'add' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">➕ Add Your Own Wave</h2>
+                    <div className="bg-white/10 rounded-xl p-6 border border-white/20">
+                      <div className="grid grid-cols-1 gap-4 mb-4">
+                        <input
+                          type="text"
+                          placeholder="Stock Symbol (e.g., NVDA, AAPL)"
+                          value={newStock.symbol}
+                          onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                          className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
+                        />
+                      </div>
+                      <div className="mb-4">
+                        <label className="text-blue-200 text-sm mb-2 block">Wave Color</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {colors.map(color => (
+                            <button
+                              key={color}
+                              onClick={() => setNewStock({ ...newStock, color })}
+                              className={`w-12 h-12 rounded-full border-2 transition-transform hover:scale-110 ${
+                                newStock.color === color ? 'border-white scale-110' : 'border-white/20'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          handleAddStock();
+                          setShowMenu(false);
+                        }}
+                        disabled={!newStock.symbol}
+                        className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
+                      >
+                        🌊 Add Wave
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {activeMenuTab === 'faq' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white">❓ Frequently Asked Questions</h2>
+                    <div className="space-y-4 text-blue-100">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I play?</h3>
+                        <p className="text-sm">Use arrow keys (or touch on mobile) to move your surfer across the wave. Press SPACE (or tap the jump button) to jump and perform tricks!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">What are the water effects?</h3>
+                        <p className="text-sm">When you change direction quickly, you'll see a cutback splash! Keep moving to see beautiful water trails behind your surfer.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I spin?</h3>
+                        <p className="text-sm">Jump first, then keep pressing SPACE (or tapping the jump button) while in the air to perform spinning tricks! The more you spin, the cooler the effects!</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">How do I unlock characters?</h3>
+                        <p className="text-sm">Build streaks and score points! Each character has specific unlock conditions shown when you hover over them.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Are these real stock prices?</h3>
+                        <p className="text-sm">Yes! The game fetches real-time stock prices and displays them on each wave. The price changes update automatically.</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <h3 className="font-bold text-lg mb-2 text-blue-300">Can I add my own stocks?</h3>
+                        <p className="text-sm">Absolutely! Click the "Add Waves" tab to add any stock symbol you want to watch. You can also pick from our trending stocks list!</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeMenuTab === 'mission' && (
+                  <div>
+                    <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
+                      ℹ️ About Stock Surfer
+                    </h2>
+                    <div className="space-y-3 text-blue-100 text-base">
+                      <p><strong>Make watching the stock market relaxing, playful, and fun</strong> – like riding waves at the beach! 🏖️</p>
+                      <p>No more stressful red and green candles. Watch stocks flow as beautiful ocean waves with surfers you can control! 🥷⚡</p>
+                      <p>NEW: Cool water spray trails behind your surfer! 💧✨</p>
+                      <p>🎵 SOUND: Relaxing ocean ambience with satisfying feedback sounds!</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="border-t border-white/20 p-3 sm:p-4 bg-black/20 flex-shrink-0">
+                <button
+                  onClick={() => setShowMenu(false)}
+                  className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-lg transition-colors text-base sm:text-lg"
+                >
+                  Close Menu
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {celebration && (
+          <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center pointer-events-none">
+            <div className="text-2xl animate-bounce text-center">🎉✨🏆✨🎉</div>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {stocks.length === 0 ? (
+            <div className="col-span-full bg-white/10 backdrop-blur-md rounded-2xl p-12 border-2 border-white/20 text-center">
+              <div className="text-6xl mb-4">🌊</div>
+              <h3 className="text-2xl font-bold text-white mb-2">No waves yet!</h3>
+              <p className="text-blue-200 mb-6">Add some stocks to start surfing</p>
+              <button
+                onClick={() => {
+                  setShowMenu(true);
+                  setActiveMenuTab('mywaves');
+                }}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-full inline-flex items-center gap-2 transition-all shadow-lg"
+              >
+                <Plus size={20} />
+                Add Your First Wave
+              </button>
+            </div>
+          ) : (
+            stocks.map((stock, index) => {
+            const char = getCharacter(selectedChars[stock.symbol]);
+            const isSelected = selectedStock === stock.symbol;
+            
+            return (
+              <div 
+                key={stock.symbol}
+                onClick={() => setSelectedStock(stock.symbol)}
+                onTouchStart={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchMove={(e) => handleStockCardTouch(e, stock.symbol)}
+                onTouchEnd={handleCanvasTouchEnd}
+                className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border-2 transition-all cursor-pointer relative select-none ${
+                  isSelected ? 'border-green-400 shadow-xl shadow-green-400/20' : 'border-white/20 hover:border-white/40'
+                }`}
+                style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+              >
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockUp(stock.symbol);
+                      }}
+                      disabled={index === 0}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === 0 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveStockDown(stock.symbol);
+                      }}
+                      disabled={index === stocks.length - 1}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
+                        index === stocks.length - 1 
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
+                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
+                      }`}
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeStock(stock.symbol);
+                    }}
+                    className="text-white/50 hover:text-white transition-colors"
+                    title="Remove stock"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-3xl font-bold text-white">{stock.symbol}</h3>
+                      {isSelected && <span className="text-green-400 text-sm font-bold">● ACTIVE</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{char?.emoji}</span>
+                      <div className="text-right">
+                        <div className="text-xs text-blue-300">{char?.name}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <canvas
+                  ref={el => canvasRefs.current[stock.symbol] = el}
+                  width={600}
+                  height={200}
+                  className="w-full h-48 mb-3 rounded-lg cursor-pointer pointer-events-none select-none"
+                  style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+                />
+                
+                <div className="border-t border-white/20 pt-3">
+                  <div className="text-blue-200 text-xs mb-2">Select Surfer:</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {characters.map(char => {
+                      const isUnlocked = unlockedChars.includes(char.id);
+                      const isCharSelected = selectedChars[stock.symbol] === char.id;
+                      
+                      return (
+                        <button
+                          key={char.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectCharacter(stock.symbol, char.id);
+                          }}
+                          disabled={!isUnlocked}
+                          className={`
+                            relative w-12 h-12 rounded-lg flex items-center justify-center text-2xl
+                            transition-all duration-200 border-2
+                            ${isCharSelected ? 'border-blue-400 scale-110 shadow-lg' : 'border-white/20'}
+                            ${isUnlocked ? 'hover:scale-105 cursor-pointer bg-white/10' : 'opacity-40 cursor-not-allowed bg-white/5'}
+                          `}
+                          title={isUnlocked ? char.name : char.unlock}
+                        >
+                          {char.emoji}
+                          {!isUnlocked && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg text-xs">
+                              🔒
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          }))}
+        </div>
+        
+        <div className="text-center text-blue-200 text-sm mb-6">
+          💡 Unlocked: {unlockedChars.length}/{characters.length} characters • Build streaks to unlock more!
+        </div>
+
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('mywaves');
+              }}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Info size={20} />
+              Menu
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(true);
+                setActiveMenuTab('add');
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-full flex items-center gap-2 transition-all shadow-lg"
+            >
+              <Plus size={20} />
+              Add Wave
+            </button>
+            <button
+              onClick={toggleSound}
+              className={`px-6 py-3 rounded-full font-bold transition-all shadow-lg ${
+                soundEnabled 
+                  ? 'bg-green-500 hover:bg-green-600 text-white' 
+                  : 'bg-gray-500 hover:bg-gray-600 text-white'
+              }`}
+            >
+              {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-4 mb-6">
+          <a
+            href="https://www.paypal.com/donate/?hosted_button_id=T2NMB7HJ6M8EU"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
+          >
+            Donate
+          </a>
+          <a
+            href="mailto:surf.fm.official@gmail.com"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
+          >
+            Contact
+          </a>
+        </div>
+      </div>
+      
+      {isMobile && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleJump();
+            }}
+            onClick={handleJump}
+            className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full border-4 border-white/30 shadow-2xl flex items-center justify-center text-4xl active:scale-95 transition-transform select-none"
+            style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+          >
+            ⬆️
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default WaveStockSurfer;
