@@ -400,18 +400,20 @@ useEffect(() => {
     loadLeaderboard();
   }, []);
   
-  const submitScore = useCallback(async () => {
-    if (!playerName.trim()) {
-      return;
-    }
+ const submitScore = useCallback(async () => {
+  if (!playerName.trim()) {
+    return;
+  }
+  
+  try {
+    const entry = {
+      name: playerName.trim(),
+      score: score,
+      streak: streak,
+      timestamp: Date.now()
+    };
     
-    try {
-      const entry = {
-        name: playerName.trim(),
-        score: score,
-        streak: streak,
-        timestamp: Date.now()
-      };
+    setPlayerName(''); 
       
       await window.storage.set(`leaderboard:${Date.now()}-${Math.random()}`, JSON.stringify(entry), true);
       
