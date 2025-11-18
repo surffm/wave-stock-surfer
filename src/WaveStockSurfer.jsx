@@ -1198,7 +1198,7 @@ useEffect(() => {
                       : 'text-blue-300 hover:bg-white/5'
                   }`}
                 >
-                  🏆 Leaderboard
+                  🏆 Leader Board
                 </button>
                 <button
                   onClick={() => activeMenuTab === 'mission' ? setShowMenu(false) : setActiveMenuTab('mission')}
@@ -1506,7 +1506,7 @@ useEffect(() => {
                 )}
                 {activeMenuTab === 'faq' && (
   <div>
-    <h2 className="text-3xl font-bold mb-4 text-white">🏆 Leaderboard</h2>
+    <h2 className="text-3xl font-bold mb-4 text-white">🏆 Leader Board</h2>
     <p className="text-blue-200 mb-4">Top surfers from around the world!</p>
     
     <div className="bg-white/10 rounded-xl p-4 sm:p-6 border border-white/20 mb-6">
