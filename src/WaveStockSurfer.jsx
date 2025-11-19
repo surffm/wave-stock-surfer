@@ -1873,7 +1873,7 @@ useEffect(() => {
             Donate
           </a>
           <a
-            href="mailto:surf.fm.official@gmail.com"
+            href="mailto:stock.surf.official@gmail.com"
             className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg"
           >
             Contact
