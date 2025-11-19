@@ -1664,7 +1664,8 @@ useEffect(() => {
       
       <h3 className="text-2xl font-bold mb-4 mt-6 text-white">🙏 Support the Wave</h3>
       <div className="space-y-3 text-blue-100 text-base">
-        <p>If you'd like to help us keep improving the game, you can donate at the bottom of the page. No pressure, no expectations — just good vibes and gratitude. 🏄‍♂️💙</p>
+        <p>If you'd like to help us keep improving the game, you can donate at the bottom of the page.</p>
+<p>No pressure, no expectations — just good vibes and gratitude. 🏄‍♂️💙</p>
         <p>Every little bit helps us keep riding this crazy wave with you.</p>
         <p className="text-lg font-semibold">Thank you for being part of our journey. Let's keep surfing. 🌊🎮</p>
       </div>
@@ -1726,50 +1727,18 @@ useEffect(() => {
                 }`}
                 style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-                  <div className="flex flex-col gap-0.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStockUp(stock.symbol);
-                      }}
-                      disabled={index === 0}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                        index === 0 
-                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                      }`}
-                      title="Move up"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStockDown(stock.symbol);
-                      }}
-                      disabled={index === stocks.length - 1}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs transition-all ${
-                        index === stocks.length - 1 
-                          ? 'bg-white/5 text-white/20 cursor-not-allowed' 
-                          : 'bg-white/20 hover:bg-white/30 text-white hover:scale-110'
-                      }`}
-                      title="Move down"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeStock(stock.symbol);
-                    }}
-                    className="text-white/50 hover:text-white transition-colors"
-                    title="Remove stock"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
+                <div className="absolute top-4 right-4 z-10">
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      removeStock(stock.symbol);
+    }}
+    className="text-white/50 hover:text-white transition-colors"
+    title="Remove stock"
+  >
+    <X size={16} />
+  </button>
+</div>
                 
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
