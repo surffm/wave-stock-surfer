@@ -16,6 +16,7 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+const [stockNotFound, setStockNotFound] = useState({});
 const [playerName, setPlayerName] = useState('');
 const [leaderboard, setLeaderboard] = useState([
   { name: 'WaveMaster', score: 15420, streak: 28 },
@@ -339,10 +340,12 @@ const getCryptoSymbol = useCallback((symbol) => {
     }
   }, [soundEnabled, initAudio]);
   
+  
   const fetchStockPrices = useCallback(async () => {
   setFetchingPrices(true);
   const newPrices = {};
   const newChanges = {};
+  const notFound = {};
   
   for (const stock of stocks) {
     try {
@@ -380,15 +383,22 @@ const getCryptoSymbol = useCallback((symbol) => {
             amount: parseFloat(quote['09. change'] || 0),
             percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
           };
+          continue;
         }
       }
+      
+      // If we got here, neither API returned valid data
+      notFound[stock.symbol] = true;
+      
     } catch (error) {
       console.error(`Error fetching price for ${stock.symbol}:`, error);
+      notFound[stock.symbol] = true;
     }
   }
   
   setRealPrices(newPrices);
   setPriceChanges(newChanges);
+  setStockNotFound(notFound);
   setFetchingPrices(false);
 }, [stocks, getCryptoSymbol]);
   
@@ -910,30 +920,36 @@ useEffect(() => {
     ctx.globalAlpha = 1;
     
     const realPrice = realPrices[stock.symbol];
-    const change = priceChanges[stock.symbol];
-    
-    if (realPrice && change) {
-      const isPositive = change.percent >= 0;
-      const priceColor = isPositive ? '#34D399' : '#F87171';
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
-      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-      ctx.fillText(`${realPrice.toFixed(2)}`, 15, 35);
-      
-      ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-      ctx.fillStyle = priceColor;
-      const arrow = isPositive ? '↑' : '↓';
-      ctx.fillText(`${arrow} ${Math.abs(change.percent).toFixed(2)}%`, 15, 60);
-      
-      ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-      ctx.fillStyle = priceColor;
-      ctx.fillText(`${change.amount >= 0 ? '+' : ''}${Math.abs(change.amount).toFixed(2)}`, 15, 78);
-    } else {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-      ctx.fillText('Loading...', 15, 35);
-    }
-  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges]);
+const change = priceChanges[stock.symbol];
+const notFound = stockNotFound[stock.symbol];
+
+if (notFound) {
+  // Stock not found message
+  ctx.fillStyle = 'rgba(239, 68, 68, 0.95)';
+  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+  ctx.fillText('Not Found', 15, 40);
+} else if (realPrice && change) {
+  const isPositive = change.percent >= 0;
+  const priceColor = isPositive ? '#34D399' : '#F87171';
+  
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+  ctx.fillText(`${realPrice.toFixed(2)}`, 15, 35);
+  
+  ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+  ctx.fillStyle = priceColor;
+  const arrow = isPositive ? '↑' : '↓';
+  ctx.fillText(`${arrow} ${Math.abs(change.percent).toFixed(2)}%`, 15, 60);
+  
+  ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+  ctx.fillStyle = priceColor;
+  ctx.fillText(`${change.amount >= 0 ? '+' : ''}${Math.abs(change.amount).toFixed(2)}`, 15, 78);
+} else {
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+  ctx.fillText('Loading...', 15, 35);
+}
+}, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges, stockNotFound]);
   
   useEffect(() => {
     let animationFrame;
@@ -1194,7 +1210,7 @@ useEffect(() => {
         </div>
         
         {showMenu && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMenu(false)}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-20" onClick={() => setShowMenu(false)}>
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex border-b border-white/20">
                 <button
@@ -1352,6 +1368,11 @@ useEffect(() => {
                             placeholder="Stock Symbol (e.g., NVDA, AAPL)"
                             value={newStock.symbol}
                             onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+onKeyDown={(e) => {
+          if (e.key === 'Enter' && newStock.symbol) {
+            handleAddStock();
+          }
+        }}
                             className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
                           />
                         </div>
@@ -1439,6 +1460,12 @@ useEffect(() => {
                             placeholder="Stock Symbol (e.g., NVDA, AAPL)"
                             value={newStock.symbol}
                             onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+onKeyDown={(e) => {
+  if (e.key === 'Enter' && newStock.symbol) {
+    handleAddStock();
+    setShowMenu(false);
+  }
+}}
                             className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
                           />
                         </div>
@@ -1491,6 +1518,12 @@ useEffect(() => {
                           placeholder="Stock Symbol (e.g., NVDA, AAPL)"
                           value={newStock.symbol}
                           onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+onKeyDown={(e) => {
+  if (e.key === 'Enter' && newStock.symbol) {
+    handleAddStock();
+    setShowMenu(false);
+  }
+}}
                           className="bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300 text-lg"
                         />
                       </div>
@@ -1546,6 +1579,11 @@ useEffect(() => {
             placeholder="Enter your name"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
+onKeyDown={(e) => {
+  if (e.key === 'Enter' && playerName.trim()) {
+    submitScore();
+  }
+}}
             className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-blue-300"
             maxLength={20}
           />
