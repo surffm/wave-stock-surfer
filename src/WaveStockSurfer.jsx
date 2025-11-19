@@ -1659,7 +1659,7 @@ useEffect(() => {
           <li>🎉 Release fun updates & events</li>
           <li>🆓 Keep the game totally free for everyone</li>
         </ul>
-<p>Our game isn't perfect, there are things we are always improving, like fixing bugs, improving accuracy, and making gameplay better, your donation helps us do that.</p>
+<p>Our game isn't perfect, there are things we are always improving, like fixing bugs, improving accuracy and making gameplay better.</p>
         <p>We want to keep building Wave Stock Surfer into something special, and <strong>your support is what makes that possible.</strong></p>
       </div>
       
