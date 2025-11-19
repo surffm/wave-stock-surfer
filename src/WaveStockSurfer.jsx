@@ -65,7 +65,23 @@ const [leaderboard, setLeaderboard] = useState([
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
   const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
   const [powerUpCount, setPowerUpCount] = useState(0);
-  
+
+const getCryptoSymbol = useCallback((symbol) => {
+  const cryptoMap = {
+    'BTC': 'BINANCE:BTCUSDT',
+    'ETH': 'BINANCE:ETHUSDT',
+    'SOL': 'BINANCE:SOLUSDT',
+    'DOGE': 'BINANCE:DOGEUSDT',
+    'XRP': 'BINANCE:XRPUSDT',
+    'ADA': 'BINANCE:ADAUSDT',
+    'AVAX': 'BINANCE:AVAXUSDT',
+    'MATIC': 'BINANCE:MATICUSDT',
+    'LINK': 'BINANCE:LINKUSDT',
+    'UNI': 'BINANCE:UNIUSDT',
+  };
+  return cryptoMap[symbol] || symbol;
+}, []);
+    
   const generatePriceHistory = useCallback((basePrice, volatility, points) => {
     const history = [basePrice];
     for (let i = 1; i < points; i++) {
@@ -324,53 +340,57 @@ const [leaderboard, setLeaderboard] = useState([
   }, [soundEnabled, initAudio]);
   
   const fetchStockPrices = useCallback(async () => {
-    setFetchingPrices(true);
-    const newPrices = {};
-    const newChanges = {};
-    
-    for (const stock of stocks) {
-      try {
-        const finnhubResponse = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${stock.symbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
-        );
-        
-        if (finnhubResponse.ok) {
-          const finnhubData = await finnhubResponse.json();
-          if (finnhubData.c && finnhubData.c > 0) {
-            newPrices[stock.symbol] = finnhubData.c;
-            newChanges[stock.symbol] = {
-              amount: finnhubData.d || 0,
-              percent: finnhubData.dp || 0
-            };
-            continue;
-          }
+  setFetchingPrices(true);
+  const newPrices = {};
+  const newChanges = {};
+  
+  for (const stock of stocks) {
+    try {
+      // Use crypto symbol mapping for crypto tickers
+      const apiSymbol = getCryptoSymbol(stock.symbol);
+      
+      const finnhubResponse = await fetch(
+        `https://finnhub.io/api/v1/quote?symbol=${apiSymbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
+      );
+      
+      if (finnhubResponse.ok) {
+        const finnhubData = await finnhubResponse.json();
+        if (finnhubData.c && finnhubData.c > 0) {
+          newPrices[stock.symbol] = finnhubData.c;
+          newChanges[stock.symbol] = {
+            amount: finnhubData.d || 0,
+            percent: finnhubData.dp || 0
+          };
+          continue;
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-        const alphaResponse = await fetch(
-          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
-        );
-        
-        if (alphaResponse.ok) {
-          const alphaData = await alphaResponse.json();
-          const quote = alphaData['Global Quote'];
-          if (quote && quote['05. price']) {
-            newPrices[stock.symbol] = parseFloat(quote['05. price']);
-            newChanges[stock.symbol] = {
-              amount: parseFloat(quote['09. change'] || 0),
-              percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
-            };
-          }
-        }
-      } catch (error) {
-        console.error(`Error fetching price for ${stock.symbol}:`, error);
       }
+      
+      // Fallback to Alpha Vantage for regular stocks
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const alphaResponse = await fetch(
+        `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
+      );
+      
+      if (alphaResponse.ok) {
+        const alphaData = await alphaResponse.json();
+        const quote = alphaData['Global Quote'];
+        if (quote && quote['05. price']) {
+          newPrices[stock.symbol] = parseFloat(quote['05. price']);
+          newChanges[stock.symbol] = {
+            amount: parseFloat(quote['09. change'] || 0),
+            percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
+          };
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching price for ${stock.symbol}:`, error);
     }
-    
-    setRealPrices(newPrices);
-    setPriceChanges(newChanges);
-    setFetchingPrices(false);
-  }, [stocks]);
+  }
+  
+  setRealPrices(newPrices);
+  setPriceChanges(newChanges);
+  setFetchingPrices(false);
+}, [stocks, getCryptoSymbol]);
   
   useEffect(() => {
     fetchStockPrices();
