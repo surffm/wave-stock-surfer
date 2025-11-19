@@ -16,7 +16,6 @@ const WaveStockSurfer = () => {
   const [priceChanges, setPriceChanges] = useState({});
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-const [stockNotFound, setStockNotFound] = useState({});
 const [playerName, setPlayerName] = useState('');
 const [leaderboard, setLeaderboard] = useState([
   { name: 'WaveMaster', score: 15420, streak: 28 },
@@ -64,12 +63,10 @@ const [leaderboard, setLeaderboard] = useState([
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
-const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
-const [powerUpCount, setPowerUpCount] = useState(0);
+  const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
+  const [powerUpCount, setPowerUpCount] = useState(0);
 
-// ADD THIS FUNCTION HERE:
 const getCryptoSymbol = useCallback((symbol) => {
-  // Manual mapping for known cryptos (most reliable)
   const cryptoMap = {
     'BTC': 'BINANCE:BTCUSDT',
     'ETH': 'BINANCE:ETHUSDT',
@@ -82,39 +79,10 @@ const getCryptoSymbol = useCallback((symbol) => {
     'LINK': 'BINANCE:LINKUSDT',
     'UNI': 'BINANCE:UNIUSDT',
   };
-  
-  // Known stock symbols that should NOT be treated as crypto
-  const knownStocks = [
-    'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'NVDA', 
-    'AMD', 'NFLX', 'DIS', 'COIN', 'PLTR', 'RIVN', 'SHOP', 'MSTR', 
-    'UBER', 'LYFT', 'SNAP', 'SPOT', 'SQ', 'PYPL', 'V', 'MA',
-    'JPM', 'BAC', 'WMT', 'TGT', 'COST', 'HD', 'NKE', 'SBUX',
-    'GME', 'AMC', 'BB', 'NOK', 'INTC', 'IBM', 'ORCL', 'CRM',
-    'BABA', 'JD', 'PDD', 'NIO', 'XPEV', 'LI', 'BIDU'
-  ];
-  
-  // If it's in the manual crypto map, use that
-  if (cryptoMap[symbol]) {
-    return cryptoMap[symbol];
-  }
-  
-  // If it's a known stock symbol, return as-is
-  if (knownStocks.includes(symbol)) {
-    return symbol;
-  }
-  
-  // Auto-detect: If it's 2-6 uppercase letters and not a known stock,
-  // try treating it as crypto with Binance format
-  if (/^[A-Z]{2,6}$/.test(symbol)) {
-    return `BINANCE:${symbol}USDT`;
-  }
-  
-  // Otherwise, return as-is (for regular stocks)
-  return symbol;
+  return cryptoMap[symbol] || symbol;
 }, []);
-  
-const generatePriceHistory = useCallback((basePrice, volatility, points) => {
-
+    
+  const generatePriceHistory = useCallback((basePrice, volatility, points) => {
     const history = [basePrice];
     for (let i = 1; i < points; i++) {
       const change = (Math.random() - 0.48) * volatility;
@@ -375,7 +343,6 @@ const generatePriceHistory = useCallback((basePrice, volatility, points) => {
   setFetchingPrices(true);
   const newPrices = {};
   const newChanges = {};
-  const notFound = {};
   
   for (const stock of stocks) {
     try {
@@ -413,22 +380,15 @@ const generatePriceHistory = useCallback((basePrice, volatility, points) => {
             amount: parseFloat(quote['09. change'] || 0),
             percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
           };
-          continue;
         }
       }
-      
-      // If we got here, neither API returned valid data
-      notFound[stock.symbol] = true;
-      
     } catch (error) {
       console.error(`Error fetching price for ${stock.symbol}:`, error);
-      notFound[stock.symbol] = true;
     }
   }
   
   setRealPrices(newPrices);
   setPriceChanges(newChanges);
-  setStockNotFound(notFound);
   setFetchingPrices(false);
 }, [stocks, getCryptoSymbol]);
   
@@ -950,36 +910,30 @@ useEffect(() => {
     ctx.globalAlpha = 1;
     
     const realPrice = realPrices[stock.symbol];
-const change = priceChanges[stock.symbol];
-const notFound = stockNotFound[stock.symbol];
-
-if (notFound) {
-  // Stock not found message
-  ctx.fillStyle = 'rgba(239, 68, 68, 0.95)';
-  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-  ctx.fillText('Not Found', 15, 40);
-} else if (realPrice && change) {
-  const isPositive = change.percent >= 0;
-  const priceColor = isPositive ? '#34D399' : '#F87171';
-  
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
-  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-  ctx.fillText(`${realPrice.toFixed(2)}`, 15, 35);
-  
-  ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-  ctx.fillStyle = priceColor;
-  const arrow = isPositive ? '↑' : '↓';
-  ctx.fillText(`${arrow} ${Math.abs(change.percent).toFixed(2)}%`, 15, 60);
-  
-  ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-  ctx.fillStyle = priceColor;
-  ctx.fillText(`${change.amount >= 0 ? '+' : ''}${Math.abs(change.amount).toFixed(2)}`, 15, 78);
-} else {
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
-  ctx.fillText('Loading...', 15, 35);
-}
-}, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges, stockNotFound]);
+    const change = priceChanges[stock.symbol];
+    
+    if (realPrice && change) {
+      const isPositive = change.percent >= 0;
+      const priceColor = isPositive ? '#34D399' : '#F87171';
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
+      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+      ctx.fillText(`${realPrice.toFixed(2)}`, 15, 35);
+      
+      ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+      ctx.fillStyle = priceColor;
+      const arrow = isPositive ? '↑' : '↓';
+      ctx.fillText(`${arrow} ${Math.abs(change.percent).toFixed(2)}%`, 15, 60);
+      
+      ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+      ctx.fillStyle = priceColor;
+      ctx.fillText(`${change.amount >= 0 ? '+' : ''}${Math.abs(change.amount).toFixed(2)}`, 15, 78);
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial';
+      ctx.fillText('Loading...', 15, 35);
+    }
+  }, [surferPositions, selectedChars, characters, selectedStock, waterTrails, cutbackSplashes, realPrices, priceChanges]);
   
   useEffect(() => {
     let animationFrame;
