@@ -63,10 +63,12 @@ const [leaderboard, setLeaderboard] = useState([
   ], []);
 
   const colors = useMemo(() => ['#60A5FA', '#34D399', '#F87171', '#FBBF24', '#A78BFA', '#EC4899', '#14B8A6'], []);
-  const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
-  const [powerUpCount, setPowerUpCount] = useState(0);
+const [unlockedChars, setUnlockedChars] = useState(['goku', 'vegeta']);
+const [powerUpCount, setPowerUpCount] = useState(0);
 
+// ADD THIS FUNCTION HERE:
 const getCryptoSymbol = useCallback((symbol) => {
+  // Manual mapping for known cryptos (most reliable)
   const cryptoMap = {
     'BTC': 'BINANCE:BTCUSDT',
     'ETH': 'BINANCE:ETHUSDT',
@@ -79,10 +81,39 @@ const getCryptoSymbol = useCallback((symbol) => {
     'LINK': 'BINANCE:LINKUSDT',
     'UNI': 'BINANCE:UNIUSDT',
   };
-  return cryptoMap[symbol] || symbol;
+  
+  // Known stock symbols that should NOT be treated as crypto
+  const knownStocks = [
+    'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'NVDA', 
+    'AMD', 'NFLX', 'DIS', 'COIN', 'PLTR', 'RIVN', 'SHOP', 'MSTR', 
+    'UBER', 'LYFT', 'SNAP', 'SPOT', 'SQ', 'PYPL', 'V', 'MA',
+    'JPM', 'BAC', 'WMT', 'TGT', 'COST', 'HD', 'NKE', 'SBUX',
+    'GME', 'AMC', 'BB', 'NOK', 'INTC', 'IBM', 'ORCL', 'CRM',
+    'BABA', 'JD', 'PDD', 'NIO', 'XPEV', 'LI', 'BIDU'
+  ];
+  
+  // If it's in the manual crypto map, use that
+  if (cryptoMap[symbol]) {
+    return cryptoMap[symbol];
+  }
+  
+  // If it's a known stock symbol, return as-is
+  if (knownStocks.includes(symbol)) {
+    return symbol;
+  }
+  
+  // Auto-detect: If it's 2-6 uppercase letters and not a known stock,
+  // try treating it as crypto with Binance format
+  if (/^[A-Z]{2,6}$/.test(symbol)) {
+    return `BINANCE:${symbol}USDT`;
+  }
+  
+  // Otherwise, return as-is (for regular stocks)
+  return symbol;
 }, []);
-    
-  const generatePriceHistory = useCallback((basePrice, volatility, points) => {
+  
+const generatePriceHistory = useCallback((basePrice, volatility, points) => {
+
     const history = [basePrice];
     for (let i = 1; i < points; i++) {
       const change = (Math.random() - 0.48) * volatility;
