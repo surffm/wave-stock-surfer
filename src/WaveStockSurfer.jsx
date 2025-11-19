@@ -58,7 +58,7 @@ const [leaderboard, setLeaderboard] = useState([
     { symbol: 'PLTR', name: 'Palantir', color: '#101113' },
     { symbol: 'RIVN', name: 'Rivian', color: '#00FFB4' },
     { symbol: 'SHOP', name: 'Shopify', color: '#96BF48' },
-    { symbol: 'SQ', name: 'Block', color: '#00D924' },
+    { symbol: 'MSTR', name: 'Block', color: '#00D924' },
     { symbol: 'UBER', name: 'Uber', color: '#000000' }
   ], []);
 
