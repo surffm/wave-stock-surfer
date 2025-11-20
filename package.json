@@ -10,6 +10,7 @@
   },
   "homepage": "./",
   "dependencies": {
+    "@vercel/kv": "^3.0.0",
     "lucide-react": "^0.381.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
