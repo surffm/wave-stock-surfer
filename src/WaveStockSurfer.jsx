@@ -364,56 +364,37 @@ const getCryptoSymbol = useCallback((symbol) => {
   
   const fetchStockPrices = useCallback(async () => {
   setFetchingPrices(true);
-  const newPrices = {};
-  const newChanges = {};
   
-  for (const stock of stocks) {
-    try {
-      // Use crypto symbol mapping for crypto tickers
-      const apiSymbol = getCryptoSymbol(stock.symbol);
-      
-      const finnhubResponse = await fetch(
-        `https://finnhub.io/api/v1/quote?symbol=${apiSymbol}&token=d49emh9r01qshn3lui9gd49emh9r01qshn3luia0`
-      );
-      
-      if (finnhubResponse.ok) {
-        const finnhubData = await finnhubResponse.json();
-        if (finnhubData.c && finnhubData.c > 0) {
-          newPrices[stock.symbol] = finnhubData.c;
-          newChanges[stock.symbol] = {
-            amount: finnhubData.d || 0,
-            percent: finnhubData.dp || 0
-          };
-          continue;
-        }
+  try {
+    const symbols = stocks.map(s => s.symbol).join(',');
+    
+    // Call YOUR caching API on the same domain
+    const response = await fetch(`/api/stock-prices?symbols=${symbols}`);
+    
+    if (!response.ok) throw new Error('Failed to fetch prices');
+    
+    const data = await response.json();
+    
+    const newPrices = {};
+    const newChanges = {};
+    
+    Object.keys(data).forEach(symbol => {
+      const result = data[symbol];
+      if (result.price && !result.error) {
+        newPrices[symbol] = result.price;
+        newChanges[symbol] = result.change;
       }
-      
-      // Fallback to Alpha Vantage for regular stocks
-      await new Promise(resolve => setTimeout(resolve, 200));
-      const alphaResponse = await fetch(
-        `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${stock.symbol}&apikey=UAL2SCJ3884W7O2E`
-      );
-      
-      if (alphaResponse.ok) {
-        const alphaData = await alphaResponse.json();
-        const quote = alphaData['Global Quote'];
-        if (quote && quote['05. price']) {
-          newPrices[stock.symbol] = parseFloat(quote['05. price']);
-          newChanges[stock.symbol] = {
-            amount: parseFloat(quote['09. change'] || 0),
-            percent: parseFloat(quote['10. change percent']?.replace('%', '') || 0)
-          };
-        }
-      }
-    } catch (error) {
-      console.error(`Error fetching price for ${stock.symbol}:`, error);
-    }
+    });
+    
+    setRealPrices(newPrices);
+    setPriceChanges(newChanges);
+    
+  } catch (error) {
+    console.error('Error fetching prices:', error);
+  } finally {
+    setFetchingPrices(false);
   }
-  
-  setRealPrices(newPrices);
-  setPriceChanges(newChanges);
-  setFetchingPrices(false);
-}, [stocks, getCryptoSymbol]);
+}, [stocks]);
 
 useEffect(() => {
   const loadChartData = async () => {
