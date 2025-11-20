@@ -3,6 +3,9 @@
   "version": "1.0.1",
   "type": "module",
   "description": "🏄‍♂️ Wave Stock Surfer Game — Surf the stock market waves! React, Tailwind, Github Pages",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
