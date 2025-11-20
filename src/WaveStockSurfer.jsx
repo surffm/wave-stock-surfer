@@ -1690,7 +1690,7 @@ onKeyDown={(e) => {
                 {activeMenuTab === 'mission' && (
   <div>
     <h2 className="text-3xl font-bold mb-4 text-white flex items-center gap-2">
-      ℹ️ About Stock Surfer
+      🌊 Our Mission 🏄‍♂️
     </h2>
     <div className="space-y-3 text-blue-100 text-base">
       <p><strong>Make watching the stock market relaxing, playful, and fun</strong> — like riding waves at the beach! 🏄‍♂️</p>
