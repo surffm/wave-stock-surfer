@@ -1,6 +1,6 @@
 {
   "name": "wave-stock-surfer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "🏄‍♂️ Wave Stock Surfer Game — Surf the stock market waves! React, Tailwind, Github Pages",
   "scripts": {
